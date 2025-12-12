@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - ORB Tool{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <header class="page-header">
+        <h1>Engine Room Status</h1>
+        <p class="page-subtitle">Live fuel & tank overview</p>
+    </header>
+
+    <!-- Fuel Consumption Card -->
+    <div class="fuel-card" id="fuel-card">
+        <div class="fuel-header">
+            <div class="fuel-title">
+                <span class="fuel-icon">⛽</span>
+                <span>Daily Fuel</span>
+            </div>
+            <div class="fuel-tank" id="fuel-active-tank">--</div>
+        </div>
+        <div class="fuel-stats-row">
+            <div class="fuel-stat">
+                <span class="fuel-stat-value" id="fuel-today">--</span>
+                <span class="fuel-stat-label">Today (gal)</span>
+            </div>
+            <div class="fuel-stat">
+                <span class="fuel-stat-value" id="fuel-avg">--</span>
+                <span class="fuel-stat-label">Avg/Day (7d)</span>
+            </div>
+            <div class="fuel-stat">
+                <span class="fuel-stat-value" id="fuel-total">--</span>
+                <span class="fuel-stat-label">This Hitch</span>
+            </div>
+        </div>
+        <a href="/fuel" class="btn btn-primary btn-sm fuel-btn">+ Add Fuel Ticket</a>
+    </div>
+
+    <!-- Slop Tank Section Header -->
+    <h2 class="section-title">Slop Tanks</h2>
+
+    <div class="status-grid" id="status-grid">
+        <!-- Tank 17P - Oily Water -->
+        <div class="tank-card" data-tank="17P">
+            <div class="tank-header">
+                <span class="tank-id">17P</span>
+                <span class="tank-code">Code I</span>
+            </div>
+            <div class="tank-name">Oily Water Tank</div>
+            <div class="tank-level">
+                <div class="level-bar">
+                    <div class="level-fill" id="tank-17p-fill" style="width: 0%"></div>
+                </div>
+                <div class="level-values">
+                    <span class="value-primary" id="tank-17p-gallons">-- gal</span>
+                    <span class="value-secondary" id="tank-17p-m3">-- m³</span>
+                </div>
+            </div>
+            <div class="tank-sounding" id="tank-17p-sounding">--' --"</div>
+            <div class="tank-delta" id="tank-17p-delta"></div>
+        </div>
+
+        <!-- Tank 17S - Dirty Oil -->
+        <div class="tank-card" data-tank="17S">
+            <div class="tank-header">
+                <span class="tank-id">17S</span>
+                <span class="tank-code">Code C</span>
+            </div>
+            <div class="tank-name">Dirty Oil Tank</div>
+            <div class="tank-level">
+                <div class="level-bar">
+                    <div class="level-fill" id="tank-17s-fill" style="width: 0%"></div>
+                </div>
+                <div class="level-values">
+                    <span class="value-primary" id="tank-17s-gallons">-- gal</span>
+                    <span class="value-secondary" id="tank-17s-m3">-- m³</span>
+                </div>
+            </div>
+            <div class="tank-sounding" id="tank-17s-sounding">--' --"</div>
+            <div class="tank-delta" id="tank-17s-delta"></div>
+        </div>
+    </div>
+
+    <div class="stats-row" id="stats-row">
+        <div class="stat-card">
+            <div class="stat-value" id="stat-soundings">--</div>
+            <div class="stat-label">Soundings</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-entries">--</div>
+            <div class="stat-label">ORB Entries</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-last-date">--</div>
+            <div class="stat-label">Last Entry</div>
+        </div>
+    </div>
+
+    <div class="action-row">
+        <a href="/soundings" class="btn btn-primary btn-lg">
+            <span class="btn-icon">+</span>
+            New Sounding
+        </a>
+    </div>
+
+    <div class="empty-state" id="empty-state" style="display: none;">
+        <div class="empty-icon">📊</div>
+        <h2>No Soundings Yet</h2>
+        <p>Record your first weekly slop tank sounding to get started.</p>
+        <a href="/soundings" class="btn btn-primary">Record Sounding</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    loadDashboard();
+    loadFuelStats();
+});
+
+async function loadFuelStats() {
+    try {
+        const response = await fetch('/api/fuel-tickets/stats');
+        const stats = await response.json();
+
+        // Active tank
+        if (stats.active_tank) {
+            document.getElementById('fuel-active-tank').textContent = '#' + stats.active_tank.tank_pair + ' P/S';
+        }
+
+        // Today's consumption
+        let todayVal = '--';
+        if (stats.latest_ticket) {
+            const ticketDate = new Date(stats.latest_ticket.ticket_date);
+            const today = new Date();
+            if (ticketDate.toDateString() === today.toDateString()) {
+                todayVal = stats.latest_ticket.consumption_gallons;
+            }
+        }
+        document.getElementById('fuel-today').textContent = todayVal;
+
+        // Weekly average
+        document.getElementById('fuel-avg').textContent = 
+            stats.weekly.average_daily > 0 ? stats.weekly.average_daily : '--';
+
+        // Total
+        document.getElementById('fuel-total').textContent = 
+            stats.all_time.total_gallons > 0 ? stats.all_time.total_gallons : '--';
+
+    } catch (error) {
+        console.error('Failed to load fuel stats:', error);
+    }
+}
+
+async function loadDashboard() {
+    try {
+        const response = await fetch('/api/dashboard/stats');
+        const stats = await response.json();
+
+        if (stats.total_soundings === 0) {
+            document.getElementById('status-grid').style.display = 'none';
+            document.getElementById('stats-row').style.display = 'none';
+            document.querySelector('.action-row').style.display = 'none';
+            document.getElementById('empty-state').style.display = 'block';
+            return;
+        }
+
+        // Update stats
+        document.getElementById('stat-soundings').textContent = stats.total_soundings;
+        document.getElementById('stat-entries').textContent = stats.total_orb_entries;
+
+        if (stats.latest_sounding) {
+            const latest = stats.latest_sounding;
+            const date = new Date(latest.recorded_at);
+            document.getElementById('stat-last-date').textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            // Tank 17P
+            const pct17p = (latest.tank_17p.gallons / 1607) * 100;
+            document.getElementById('tank-17p-fill').style.width = pct17p + '%';
+            document.getElementById('tank-17p-gallons').textContent = latest.tank_17p.gallons + ' gal';
+            document.getElementById('tank-17p-m3').textContent = latest.tank_17p.m3.toFixed(2) + ' m³';
+            document.getElementById('tank-17p-sounding').textContent = `${latest.tank_17p.feet}' ${latest.tank_17p.inches}"`;
+
+            // Tank 17S
+            const pct17s = (latest.tank_17s.gallons / 1607) * 100;
+            document.getElementById('tank-17s-fill').style.width = pct17s + '%';
+            document.getElementById('tank-17s-gallons').textContent = latest.tank_17s.gallons + ' gal';
+            document.getElementById('tank-17s-m3').textContent = latest.tank_17s.m3.toFixed(2) + ' m³';
+            document.getElementById('tank-17s-sounding').textContent = `${latest.tank_17s.feet}' ${latest.tank_17s.inches}"`;
+
+            // Deltas
+            if (stats.deltas) {
+                const delta17p = stats.deltas.tank_17p_gallons;
+                const delta17s = stats.deltas.tank_17s_gallons;
+                
+                const el17p = document.getElementById('tank-17p-delta');
+                const el17s = document.getElementById('tank-17s-delta');
+                
+                el17p.textContent = (delta17p >= 0 ? '+' : '') + delta17p + ' gal';
+                el17p.className = 'tank-delta ' + (delta17p > 0 ? 'delta-up' : delta17p < 0 ? 'delta-down' : '');
+                
+                el17s.textContent = (delta17s >= 0 ? '+' : '') + delta17s + ' gal';
+                el17s.className = 'tank-delta ' + (delta17s > 0 ? 'delta-up' : delta17s < 0 ? 'delta-down' : '');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load dashboard:', error);
+    }
+}
+</script>
+{% endblock %}
+

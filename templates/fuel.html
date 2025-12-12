@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+{% block title %}Fuel Tracking - ORB Tool{% endblock %}
+
+{% block content %}
+<div class="fuel-page">
+    <header class="page-header">
+        <h1>Fuel Tracking</h1>
+        <p class="page-subtitle">Daily fuel tickets & consumption</p>
+    </header>
+
+    <!-- Service Tank Selector -->
+    <div class="form-section tank-selector-section" id="tank-selector">
+        <div class="section-header">
+            <span class="section-icon">⛽</span>
+            <span class="section-title">Active Service Tank</span>
+        </div>
+        <div class="tank-selector">
+            <div class="active-tank" id="active-tank-display">
+                <span class="tank-value">--</span>
+                <span class="tank-label">No tank selected</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="change-tank-btn">Change</button>
+        </div>
+    </div>
+
+    <!-- Fuel Stats Summary -->
+    <div class="stats-row fuel-stats" id="fuel-stats">
+        <div class="stat-card">
+            <div class="stat-value" id="stat-today">--</div>
+            <div class="stat-label">Today (gal)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-weekly">--</div>
+            <div class="stat-label">Avg/Day (7d)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-total">--</div>
+            <div class="stat-label">Total (gal)</div>
+        </div>
+    </div>
+
+    <!-- New Ticket Form -->
+    <form id="fuel-ticket-form" class="form">
+        <div class="form-section">
+            <label class="form-label">Date & Time</label>
+            <input type="datetime-local" id="ticket-date" class="form-input" required>
+        </div>
+
+        <div class="form-section meter-section">
+            <div class="section-header">
+                <span class="section-icon">📊</span>
+                <span class="section-title">Meter Readings</span>
+            </div>
+            <div class="meter-inputs">
+                <div class="meter-input">
+                    <label class="form-label">Start (gal)</label>
+                    <input type="number" id="meter-start" class="form-input" 
+                           step="0.1" min="0" placeholder="12345.0" required>
+                </div>
+                <div class="meter-input">
+                    <label class="form-label">End (gal)</label>
+                    <input type="number" id="meter-end" class="form-input" 
+                           step="0.1" min="0" placeholder="12567.0" required>
+                </div>
+            </div>
+            <div class="consumption-display" id="consumption-display">
+                <span class="consumption-label">Consumption:</span>
+                <span class="consumption-value" id="consumption-value">-- gal</span>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <label class="form-label">Engineer Name</label>
+            <input type="text" id="engineer-name" class="form-input" placeholder="e.g. DP" required>
+        </div>
+
+        <div class="form-section">
+            <label class="form-label">Notes (optional)</label>
+            <input type="text" id="notes" class="form-input" placeholder="Normal operations">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="submit-btn">
+            Record Fuel Ticket
+        </button>
+    </form>
+
+    <!-- Recent Tickets -->
+    <div class="recent-section">
+        <h2 class="section-heading">Recent Tickets</h2>
+        <div class="list" id="recent-tickets">
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Tank Selection Modal -->
+    <div class="modal" id="tank-modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Select Service Tank</h2>
+            </div>
+            <div class="modal-body">
+                <div class="tank-options" id="tank-options">
+                    <!-- Populated by JS -->
+                </div>
+                <div class="form-section">
+                    <label class="form-label">Notes (optional)</label>
+                    <input type="text" id="tank-notes" class="form-input" placeholder="Reason for change">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="tank-modal-cancel">Cancel</button>
+                <button class="btn btn-primary" id="tank-modal-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div class="toast" id="success-toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">Fuel ticket recorded</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedTankPair = null;
+let activeTank = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Set default datetime to now
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('ticket-date').value = now.toISOString().slice(0, 16);
+
+    // Load saved engineer name
+    const savedName = localStorage.getItem('engineer_name');
+    if (savedName) document.getElementById('engineer-name').value = savedName;
+
+    // Load data
+    loadActiveTank();
+    loadFuelStats();
+    loadRecentTickets();
+
+    // Live consumption calculation
+    const meterStart = document.getElementById('meter-start');
+    const meterEnd = document.getElementById('meter-end');
+    meterStart.addEventListener('input', calculateConsumption);
+    meterEnd.addEventListener('input', calculateConsumption);
+
+    // Auto-fill start from last ticket
+    loadLastMeterReading();
+
+    // Form submission
+    document.getElementById('fuel-ticket-form').addEventListener('submit', handleSubmit);
+
+    // Tank modal
+    document.getElementById('change-tank-btn').addEventListener('click', openTankModal);
+    document.getElementById('tank-modal-cancel').addEventListener('click', closeTankModal);
+    document.querySelector('#tank-modal .modal-backdrop').addEventListener('click', closeTankModal);
+    document.getElementById('tank-modal-confirm').addEventListener('click', confirmTankChange);
+});
+
+async function loadActiveTank() {
+    try {
+        const response = await fetch('/api/service-tanks/active');
+        const tank = await response.json();
+        activeTank = tank;
+        updateTankDisplay();
+    } catch (e) {
+        console.error('Failed to load active tank:', e);
+    }
+}
+
+function updateTankDisplay() {
+    const display = document.getElementById('active-tank-display');
+    if (activeTank) {
+        display.innerHTML = `
+            <span class="tank-value">#${activeTank.tank_pair}</span>
+            <span class="tank-label">P/S Active</span>
+        `;
+        display.classList.add('has-tank');
+    } else {
+        display.innerHTML = `
+            <span class="tank-value">--</span>
+            <span class="tank-label">No tank selected</span>
+        `;
+        display.classList.remove('has-tank');
+    }
+}
+
+async function loadFuelStats() {
+    try {
+        const response = await fetch('/api/fuel-tickets/stats');
+        const stats = await response.json();
+
+        // Today's consumption (from latest ticket if today)
+        let todayConsumption = '--';
+        if (stats.latest_ticket) {
+            const ticketDate = new Date(stats.latest_ticket.ticket_date);
+            const today = new Date();
+            if (ticketDate.toDateString() === today.toDateString()) {
+                todayConsumption = stats.latest_ticket.consumption_gallons;
+            }
+        }
+        document.getElementById('stat-today').textContent = todayConsumption;
+
+        // Weekly average
+        document.getElementById('stat-weekly').textContent = 
+            stats.weekly.average_daily > 0 ? stats.weekly.average_daily : '--';
+
+        // Total
+        document.getElementById('stat-total').textContent = 
+            stats.all_time.total_gallons > 0 ? stats.all_time.total_gallons : '--';
+
+    } catch (e) {
+        console.error('Failed to load fuel stats:', e);
+    }
+}
+
+async function loadRecentTickets() {
+    try {
+        const response = await fetch('/api/fuel-tickets');
+        const tickets = await response.json();
+        const list = document.getElementById('recent-tickets');
+
+        if (tickets.length === 0) {
+            list.innerHTML = '<div class="empty">No fuel tickets yet.</div>';
+            return;
+        }
+
+        // Show last 5 tickets
+        const recent = tickets.slice(0, 5);
+        list.innerHTML = recent.map(t => {
+            const date = new Date(t.ticket_date);
+            return `
+                <div class="list-item">
+                    <div class="item-date">
+                        <span class="date-day">${date.getDate()}</span>
+                        <span class="date-month">${date.toLocaleDateString('en-US', { month: 'short' })}</span>
+                    </div>
+                    <div class="item-details">
+                        <div class="item-consumption">${t.consumption_gallons} gal</div>
+                        <div class="item-meta">${t.service_tank_display} • ${t.engineer_name}</div>
+                    </div>
+                    <div class="item-meters">
+                        ${t.meter_start.toFixed(1)} → ${t.meter_end.toFixed(1)}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (e) {
+        console.error('Failed to load tickets:', e);
+        document.getElementById('recent-tickets').innerHTML = '<div class="error">Failed to load.</div>';
+    }
+}
+
+async function loadLastMeterReading() {
+    try {
+        const response = await fetch('/api/fuel-tickets/latest');
+        const ticket = await response.json();
+        if (ticket && ticket.meter_end) {
+            document.getElementById('meter-start').value = ticket.meter_end.toFixed(1);
+            document.getElementById('meter-start').placeholder = ticket.meter_end.toFixed(1);
+        }
+    } catch (e) {
+        console.error('Failed to load last meter reading:', e);
+    }
+}
+
+function calculateConsumption() {
+    const start = parseFloat(document.getElementById('meter-start').value);
+    const end = parseFloat(document.getElementById('meter-end').value);
+    const display = document.getElementById('consumption-value');
+
+    if (isNaN(start) || isNaN(end)) {
+        display.textContent = '-- gal';
+        display.classList.remove('error', 'valid');
+        return;
+    }
+
+    const consumption = end - start;
+    if (consumption < 0) {
+        display.textContent = 'Invalid (end < start)';
+        display.classList.add('error');
+        display.classList.remove('valid');
+    } else {
+        display.textContent = consumption.toFixed(1) + ' gal';
+        display.classList.add('valid');
+        display.classList.remove('error');
+    }
+}
+
+async function openTankModal() {
+    // Load tank options
+    try {
+        const response = await fetch('/api/service-tanks');
+        const tanks = await response.json();
+        
+        const container = document.getElementById('tank-options');
+        container.innerHTML = tanks.map(t => `
+            <button type="button" class="tank-option ${activeTank && activeTank.tank_pair === t.id ? 'active' : ''}" 
+                    data-tank="${t.id}">
+                <span class="tank-number">#${t.id}</span>
+                <span class="tank-desc">P/S</span>
+            </button>
+        `).join('');
+
+        // Add click handlers
+        container.querySelectorAll('.tank-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                container.querySelectorAll('.tank-option').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedTankPair = btn.dataset.tank;
+            });
+        });
+
+        document.getElementById('tank-modal').classList.add('show');
+    } catch (e) {
+        console.error('Failed to load tank options:', e);
+    }
+}
+
+function closeTankModal() {
+    document.getElementById('tank-modal').classList.remove('show');
+    selectedTankPair = null;
+    document.getElementById('tank-notes').value = '';
+}
+
+async function confirmTankChange() {
+    if (!selectedTankPair) {
+        alert('Please select a tank');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/service-tanks/active', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tank_pair: selectedTankPair,
+                notes: document.getElementById('tank-notes').value || null
+            })
+        });
+
+        if (response.ok) {
+            const tank = await response.json();
+            activeTank = tank;
+            updateTankDisplay();
+            closeTankModal();
+            showToast('Service tank updated');
+        } else {
+            const error = await response.json();
+            alert('Error: ' + error.error);
+        }
+    } catch (e) {
+        console.error('Failed to update tank:', e);
+        alert('Network error');
+    }
+}
+
+async function handleSubmit(e) {
+    e.preventDefault();
+
+    if (!activeTank) {
+        alert('Please select an active service tank first.');
+        document.getElementById('change-tank-btn').click();
+        return;
+    }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    // Save engineer name
+    const engineerName = document.getElementById('engineer-name').value;
+    localStorage.setItem('engineer_name', engineerName);
+
+    const data = {
+        ticket_date: document.getElementById('ticket-date').value,
+        meter_start: parseFloat(document.getElementById('meter-start').value),
+        meter_end: parseFloat(document.getElementById('meter-end').value),
+        service_tank_pair: activeTank.tank_pair,
+        engineer_name: engineerName,
+        notes: document.getElementById('notes').value || null
+    };
+
+    try {
+        const response = await fetch('/api/fuel-tickets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            const ticket = await response.json();
+            
+            // Update UI
+            showToast('Fuel ticket recorded');
+            
+            // Reset form for next entry
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('ticket-date').value = now.toISOString().slice(0, 16);
+            document.getElementById('meter-start').value = ticket.meter_end.toFixed(1);
+            document.getElementById('meter-end').value = '';
+            document.getElementById('notes').value = '';
+            document.getElementById('consumption-value').textContent = '-- gal';
+            
+            // Reload data
+            loadFuelStats();
+            loadRecentTickets();
+        } else {
+            const error = await response.json();
+            alert('Error: ' + error.error);
+        }
+    } catch (e) {
+        console.error('Failed to save ticket:', e);
+        alert('Network error. Please try again.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Record Fuel Ticket';
+    }
+}
+
+function showToast(message) {
+    const toast = document.getElementById('success-toast');
+    toast.querySelector('.toast-message').textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+</script>
+{% endblock %}
+

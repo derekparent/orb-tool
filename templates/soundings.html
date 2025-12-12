@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}Weekly Soundings - ORB Tool{% endblock %}
+
+{% block content %}
+<div class="soundings-page">
+    <header class="page-header">
+        <h1>Weekly Soundings</h1>
+        <p class="page-subtitle">Record slop tank levels</p>
+    </header>
+
+    <form id="sounding-form" class="form">
+        <!-- Date/Time -->
+        <div class="form-section">
+            <label class="form-label">Date & Time</label>
+            <input type="datetime-local" id="recorded-at" class="form-input" required>
+        </div>
+
+        <!-- Tank 17P -->
+        <div class="form-section tank-section">
+            <div class="section-header">
+                <span class="tank-badge">17P</span>
+                <span class="tank-label">Oily Water Tank</span>
+                <span class="orb-code">Code I</span>
+            </div>
+            <div class="sounding-input">
+                <div class="input-group">
+                    <select id="tank-17p-feet" class="form-select" required>
+                        <option value="">Ft</option>
+                        <option value="0">0'</option>
+                        <option value="1">1'</option>
+                        <option value="2">2'</option>
+                        <option value="3">3'</option>
+                    </select>
+                    <select id="tank-17p-inches" class="form-select" required>
+                        <option value="">In</option>
+                        <option value="0">0"</option>
+                        <option value="1">1"</option>
+                        <option value="2">2"</option>
+                        <option value="3">3"</option>
+                        <option value="4">4"</option>
+                        <option value="5">5"</option>
+                        <option value="6">6"</option>
+                        <option value="7">7"</option>
+                        <option value="8">8"</option>
+                        <option value="9">9"</option>
+                        <option value="10">10"</option>
+                        <option value="11">11"</option>
+                    </select>
+                </div>
+                <div class="volume-display" id="tank-17p-volume">
+                    <span class="volume-gal">-- gal</span>
+                    <span class="volume-m3">-- m³</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tank 17S -->
+        <div class="form-section tank-section">
+            <div class="section-header">
+                <span class="tank-badge">17S</span>
+                <span class="tank-label">Dirty Oil Tank</span>
+                <span class="orb-code">Code C</span>
+            </div>
+            <div class="sounding-input">
+                <div class="input-group">
+                    <select id="tank-17s-feet" class="form-select" required>
+                        <option value="">Ft</option>
+                        <option value="0">0'</option>
+                        <option value="1">1'</option>
+                        <option value="2">2'</option>
+                        <option value="3">3'</option>
+                    </select>
+                    <select id="tank-17s-inches" class="form-select" required>
+                        <option value="">In</option>
+                        <option value="0">0"</option>
+                        <option value="1">1"</option>
+                        <option value="2">2"</option>
+                        <option value="3">3"</option>
+                        <option value="4">4"</option>
+                        <option value="5">5"</option>
+                        <option value="6">6"</option>
+                        <option value="7">7"</option>
+                        <option value="8">8"</option>
+                        <option value="9">9"</option>
+                        <option value="10">10"</option>
+                        <option value="11">11"</option>
+                    </select>
+                </div>
+                <div class="volume-display" id="tank-17s-volume">
+                    <span class="volume-gal">-- gal</span>
+                    <span class="volume-m3">-- m³</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Engineer Info -->
+        <div class="form-section">
+            <label class="form-label">Engineer Name</label>
+            <input type="text" id="engineer-name" class="form-input" placeholder="e.g. John Smith" required>
+        </div>
+
+        <div class="form-section">
+            <label class="form-label">Title</label>
+            <select id="engineer-title" class="form-select" required>
+                <option value="">Select title...</option>
+                <option value="Chief Engineer">Chief Engineer</option>
+                <option value="1st Assistant Engineer">1st Assistant Engineer</option>
+                <option value="2nd Assistant Engineer">2nd Assistant Engineer</option>
+                <option value="3rd Assistant Engineer">3rd Assistant Engineer</option>
+                <option value="QMED">QMED</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block" id="submit-btn">
+            Save & Generate ORB Entries
+        </button>
+    </form>
+
+    <!-- Success Modal -->
+    <div class="modal" id="success-modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>ORB Entries Generated</h2>
+            </div>
+            <div class="modal-body">
+                <div class="orb-entry" id="orb-entry-c">
+                    <div class="entry-header">
+                        <span class="entry-code">Code C</span>
+                        <button class="btn-copy" data-target="entry-c-text">Copy</button>
+                    </div>
+                    <pre class="entry-text" id="entry-c-text"></pre>
+                </div>
+                <div class="orb-entry" id="orb-entry-i">
+                    <div class="entry-header">
+                        <span class="entry-code">Code I</span>
+                        <button class="btn-copy" data-target="entry-i-text">Copy</button>
+                    </div>
+                    <pre class="entry-text" id="entry-i-text"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="/" class="btn btn-secondary">Dashboard</a>
+                <button class="btn btn-primary" id="new-sounding-btn">New Sounding</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Set default datetime to now
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('recorded-at').value = now.toISOString().slice(0, 16);
+
+    // Load saved engineer info
+    const savedName = localStorage.getItem('engineer_name');
+    const savedTitle = localStorage.getItem('engineer_title');
+    if (savedName) document.getElementById('engineer-name').value = savedName;
+    if (savedTitle) document.getElementById('engineer-title').value = savedTitle;
+
+    // Live volume lookup
+    setupVolumeLookup('17P');
+    setupVolumeLookup('17S');
+
+    // Form submission
+    document.getElementById('sounding-form').addEventListener('submit', handleSubmit);
+
+    // Modal buttons
+    document.getElementById('new-sounding-btn').addEventListener('click', () => {
+        document.getElementById('success-modal').classList.remove('show');
+        document.getElementById('sounding-form').reset();
+        document.getElementById('recorded-at').value = new Date().toISOString().slice(0, 16);
+    });
+
+    document.querySelector('.modal-backdrop').addEventListener('click', () => {
+        document.getElementById('success-modal').classList.remove('show');
+    });
+
+    // Copy buttons
+    document.querySelectorAll('.btn-copy').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const text = document.getElementById(btn.dataset.target).textContent;
+            navigator.clipboard.writeText(text);
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 1500);
+        });
+    });
+});
+
+function setupVolumeLookup(tankId) {
+    const feetSelect = document.getElementById(`tank-${tankId.toLowerCase()}-feet`);
+    const inchesSelect = document.getElementById(`tank-${tankId.toLowerCase()}-inches`);
+    const volumeDisplay = document.getElementById(`tank-${tankId.toLowerCase()}-volume`);
+
+    const lookup = async () => {
+        const feet = feetSelect.value;
+        const inches = inchesSelect.value;
+        
+        if (feet === '' || inches === '') {
+            volumeDisplay.innerHTML = '<span class="volume-gal">-- gal</span><span class="volume-m3">-- m³</span>';
+            return;
+        }
+
+        // Validate 3'0" max
+        if (parseInt(feet) === 3 && parseInt(inches) > 0) {
+            volumeDisplay.innerHTML = '<span class="volume-error">Max: 3\' 0"</span>';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/tanks/${tankId}/lookup?feet=${feet}&inches=${inches}`);
+            if (response.ok) {
+                const data = await response.json();
+                volumeDisplay.innerHTML = `<span class="volume-gal">${data.gallons} gal</span><span class="volume-m3">${data.m3.toFixed(2)} m³</span>`;
+            }
+        } catch (e) {
+            console.error('Lookup failed:', e);
+        }
+    };
+
+    feetSelect.addEventListener('change', lookup);
+    inchesSelect.addEventListener('change', lookup);
+}
+
+async function handleSubmit(e) {
+    e.preventDefault();
+    
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    // Save engineer info for next time
+    const engineerName = document.getElementById('engineer-name').value;
+    const engineerTitle = document.getElementById('engineer-title').value;
+    localStorage.setItem('engineer_name', engineerName);
+    localStorage.setItem('engineer_title', engineerTitle);
+
+    const data = {
+        recorded_at: document.getElementById('recorded-at').value,
+        engineer_name: engineerName,
+        engineer_title: engineerTitle,
+        tank_17p: {
+            feet: parseInt(document.getElementById('tank-17p-feet').value),
+            inches: parseInt(document.getElementById('tank-17p-inches').value)
+        },
+        tank_17s: {
+            feet: parseInt(document.getElementById('tank-17s-feet').value),
+            inches: parseInt(document.getElementById('tank-17s-inches').value)
+        }
+    };
+
+    try {
+        const response = await fetch('/api/soundings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            
+            // Show success modal with ORB entries
+            const entryC = result.orb_entries.find(e => e.code === 'C');
+            const entryI = result.orb_entries.find(e => e.code === 'I');
+            
+            document.getElementById('entry-c-text').textContent = entryC.entry_text;
+            document.getElementById('entry-i-text').textContent = entryI.entry_text;
+            document.getElementById('success-modal').classList.add('show');
+        } else {
+            const error = await response.json();
+            alert('Error: ' + error.error);
+        }
+    } catch (e) {
+        alert('Network error. Please try again.');
+        console.error(e);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save & Generate ORB Entries';
+    }
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}History - ORB Tool{% endblock %}
+
+{% block content %}
+<div class="history-page">
+    <header class="page-header">
+        <h1>History</h1>
+        <p class="page-subtitle">Past soundings & ORB entries</p>
+    </header>
+
+    <div class="tabs">
+        <button class="tab active" data-tab="soundings">Soundings</button>
+        <button class="tab" data-tab="orb">ORB Entries</button>
+    </div>
+
+    <div class="tab-content active" id="soundings-tab">
+        <div class="list" id="soundings-list">
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="orb-tab">
+        <div class="list" id="orb-list">
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+
+    <!-- ORB Entry Modal -->
+    <div class="modal" id="orb-modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">ORB Entry</h2>
+            </div>
+            <div class="modal-body">
+                <pre class="entry-text" id="modal-entry-text"></pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="modal-close">Close</button>
+                <button class="btn btn-primary btn-copy-modal">Copy</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    loadSoundings();
+    loadORBEntries();
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(tab.dataset.tab + '-tab').classList.add('active');
+        });
+    });
+
+    // Modal
+    document.querySelector('.modal-backdrop').addEventListener('click', closeModal);
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    document.querySelector('.btn-copy-modal').addEventListener('click', () => {
+        const text = document.getElementById('modal-entry-text').textContent;
+        navigator.clipboard.writeText(text);
+        const btn = document.querySelector('.btn-copy-modal');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+    });
+});
+
+function closeModal() {
+    document.getElementById('orb-modal').classList.remove('show');
+}
+
+async function loadSoundings() {
+    try {
+        const response = await fetch('/api/soundings');
+        const soundings = await response.json();
+        const list = document.getElementById('soundings-list');
+
+        if (soundings.length === 0) {
+            list.innerHTML = '<div class="empty">No soundings recorded yet.</div>';
+            return;
+        }
+
+        list.innerHTML = soundings.map(s => {
+            const date = new Date(s.recorded_at);
+            return `
+                <div class="list-item">
+                    <div class="item-date">
+                        <span class="date-day">${date.getDate()}</span>
+                        <span class="date-month">${date.toLocaleDateString('en-US', { month: 'short' })}</span>
+                    </div>
+                    <div class="item-details">
+                        <div class="item-tanks">
+                            <span class="tank">17P: ${s.tank_17p.feet}'${s.tank_17p.inches}" (${s.tank_17p.gallons} gal)</span>
+                            <span class="tank">17S: ${s.tank_17s.feet}'${s.tank_17s.inches}" (${s.tank_17s.gallons} gal)</span>
+                        </div>
+                        <div class="item-meta">${s.engineer_name}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        console.error('Failed to load soundings:', e);
+        document.getElementById('soundings-list').innerHTML = '<div class="error">Failed to load soundings.</div>';
+    }
+}
+
+async function loadORBEntries() {
+    try {
+        const response = await fetch('/api/orb-entries');
+        const entries = await response.json();
+        const list = document.getElementById('orb-list');
+
+        if (entries.length === 0) {
+            list.innerHTML = '<div class="empty">No ORB entries generated yet.</div>';
+            return;
+        }
+
+        list.innerHTML = entries.map(e => {
+            const date = new Date(e.entry_date);
+            return `
+                <div class="list-item clickable" data-entry-id="${e.id}">
+                    <div class="item-date">
+                        <span class="date-day">${date.getDate()}</span>
+                        <span class="date-month">${date.toLocaleDateString('en-US', { month: 'short' })}</span>
+                    </div>
+                    <div class="item-details">
+                        <div class="item-code">Code ${e.code}</div>
+                        <div class="item-preview">${e.entry_text.split('\n').slice(0, 2).join(' ')}</div>
+                    </div>
+                    <div class="item-arrow">›</div>
+                </div>
+            `;
+        }).join('');
+
+        // Click handlers
+        list.querySelectorAll('.list-item.clickable').forEach(item => {
+            item.addEventListener('click', async () => {
+                const entry = entries.find(e => e.id === parseInt(item.dataset.entryId));
+                if (entry) {
+                    document.getElementById('modal-title').textContent = `Code ${entry.code} Entry`;
+                    document.getElementById('modal-entry-text').textContent = entry.entry_text;
+                    document.getElementById('orb-modal').classList.add('show');
+                }
+            });
+        });
+    } catch (e) {
+        console.error('Failed to load ORB entries:', e);
+        document.getElementById('orb-list').innerHTML = '<div class="error">Failed to load ORB entries.</div>';
+    }
+}
+</script>
+{% endblock %}
+

@@ -1,3 +1,23 @@
----
+# Oil Record Book Tool Rules
+
+## Git
+- Use SSH: git@github.com:Dparent97/oil_record_book_tool.git
+- Conventional commits: feat:, fix:, docs:, refactor:, chore:
+- Never mention AI in commits
+
+## Code Style
+- Python with type hints always
+- Flask patterns (blueprints for routes)
+- Mobile-first HTML/CSS
+- SQLite for database
+
+## Project Constraints
+- Handle temporary connectivity drops gracefully (don't lose user input on network blip)
+- Mobile-first responsive design
+- Generate Excel handover for Gold crew
+- Real users = handle errors properly
+
+## When Done
+Say "Done." - no summaries unless asked.---
 alwaysApply: true
 ---
