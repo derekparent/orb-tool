@@ -64,9 +64,13 @@ Just say "Done." - no summaries unless asked.
 
 **Key constraints:**
 - Mobile-first (used on phones aboard ship)
-- Must work offline or low-bandwidth
+- Handle temporary connectivity drops gracefully (don't lose user input on network blip)
 - Two-crew rotation: Blue crew uses app, Gold crew uses Excel (app generates Excel handover)
 - Real users = real consequences
+
+**Data:**
+- Sounding tables in `data/sounding_tables.json`
+- Conversion: gallons × 0.00378541 = m³
 
 **Core features (MVP):**
 - End of Hitch Soundings import (baseline)

@@ -27,7 +27,7 @@ Maritime engineers manually track fuel consumption, tank soundings, and complian
 - **Backend:** Python/Flask
 - **Database:** SQLite (portable, works offline)
 - **Frontend:** Mobile-first responsive HTML/CSS/JS
-- **Deployment:** TBD (needs to work in low-bandwidth environments)
+- **Deployment:** TBD (Railway or similar)
 
 ## Design Constraints
 
@@ -35,7 +35,7 @@ Maritime engineers manually track fuel consumption, tank soundings, and complian
 Blue crew uses the app. Gold crew prefers Excel. Solution: App generates pixel-perfect Excel/PDF handover so Gold crew never needs to know the app exists.
 
 ### Offshore Environment
-- Must work with spotty internet
+- Handle temporary connectivity drops gracefully (don't lose user input)
 - Mobile-first (phones, not laptops)
 - No margin for data loss
 
@@ -64,7 +64,7 @@ oil_record_book_tool/
 ├── static/                 # CSS, JS, images
 ├── tests/
 ├── data/
-│   └── sounding_tables/    # Tank conversion tables
+│   └── sounding_tables.json    # Tank conversion tables (17P, 17S)
 ├── docs/
 │   └── ORB_App_Planning_Document.md
 ├── requirements.txt
