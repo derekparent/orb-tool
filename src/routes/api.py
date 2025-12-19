@@ -5,11 +5,13 @@ from flask import Blueprint, current_app, jsonify, request
 
 from models import (
     WeeklySounding, ORBEntry, DailyFuelTicket, ServiceTankConfig,
-    StatusEvent, EquipmentStatus, OilLevel, HitchRecord, EQUIPMENT_LIST, db
+    StatusEvent, EquipmentStatus, OilLevel, HitchRecord, FuelTankSounding,
+    EQUIPMENT_LIST, db
 )
 from services.sounding_service import SoundingService
 from services.orb_service import ORBService
 from services.fuel_service import FuelService
+from services.ocr_service import parse_end_of_hitch_image
 
 api_bp = Blueprint("api", __name__)
 
@@ -701,61 +703,162 @@ def get_full_dashboard():
     })
 
 
+# --- OCR Parsing ---
+
+
+@api_bp.route("/hitch/parse-image", methods=["POST"])
+def parse_hitch_image():
+    """
+    Parse an uploaded End of Hitch Sounding Form image.
+
+    Accepts multipart/form-data with 'image' file.
+    Returns extracted form data as JSON.
+    """
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided"}), 400
+
+    file = request.files["image"]
+    if file.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+
+    # Read image data
+    image_data = file.read()
+
+    try:
+        result = parse_end_of_hitch_image(image_data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"OCR failed: {str(e)}"}), 500
+
+
 # --- Hitch Management ---
 
 
 @api_bp.route("/hitch/current", methods=["GET"])
 def get_current_hitch():
     """Get the current active hitch."""
-    hitch = HitchRecord.query.filter_by(end_date=None).order_by(
-        HitchRecord.start_date.desc()
+    hitch = HitchRecord.query.filter_by(end_date=None, is_start=True).order_by(
+        HitchRecord.date.desc()
     ).first()
     if hitch:
         return jsonify(hitch.to_dict())
     return jsonify(None)
 
 
+@api_bp.route("/hitch/<int:hitch_id>", methods=["GET"])
+def get_hitch(hitch_id: int):
+    """Get a specific hitch record with all details."""
+    hitch = HitchRecord.query.get_or_404(hitch_id)
+    return jsonify(hitch.to_dict())
+
+
+@api_bp.route("/hitch/<int:hitch_id>", methods=["PUT"])
+def update_hitch(hitch_id: int):
+    """Update an existing hitch record (for end-of-hitch editing)."""
+    hitch = HitchRecord.query.get_or_404(hitch_id)
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "JSON body required"}), 400
+
+    try:
+        # Update simple fields
+        for field in [
+            "vessel", "location", "charter", "fuel_on_log", "correction",
+            "total_fuel_gallons", "lube_oil_15p", "gear_oil_15s",
+            "lube_oil_16p", "hyd_oil_16s", "engineer_name"
+        ]:
+            if field in data:
+                setattr(hitch, field, data[field])
+
+        # Update draft
+        if "draft_forward" in data:
+            hitch.draft_forward_feet = data["draft_forward"].get("feet")
+            hitch.draft_forward_inches = data["draft_forward"].get("inches")
+        if "draft_aft" in data:
+            hitch.draft_aft_feet = data["draft_aft"].get("feet")
+            hitch.draft_aft_inches = data["draft_aft"].get("inches")
+
+        # Update slop tanks
+        if "slop_tanks" in data:
+            slop = data["slop_tanks"]
+            if "17p_oily_bilge" in slop:
+                ob = slop["17p_oily_bilge"]
+                hitch.oily_bilge_17p_feet = ob.get("feet")
+                hitch.oily_bilge_17p_inches = ob.get("inches")
+                hitch.oily_bilge_17p_gallons = ob.get("gallons")
+            if "17s_dirty_oil" in slop:
+                do = slop["17s_dirty_oil"]
+                hitch.dirty_oil_17s_feet = do.get("feet")
+                hitch.dirty_oil_17s_inches = do.get("inches")
+                hitch.dirty_oil_17s_gallons = do.get("gallons")
+
+        # Update fuel tanks (replace all)
+        if "fuel_tanks" in data:
+            # Delete existing
+            FuelTankSounding.query.filter_by(hitch_id=hitch.id).delete()
+
+            # Add new
+            for tank_data in data["fuel_tanks"]:
+                tank = FuelTankSounding(
+                    hitch_id=hitch.id,
+                    tank_number=tank_data["tank_number"],
+                    side=tank_data["side"],
+                    is_day_tank=tank_data.get("is_day_tank", False),
+                    sounding_feet=tank_data.get("sounding_feet"),
+                    sounding_inches=tank_data.get("sounding_inches"),
+                    water_present=tank_data.get("water_present", "None"),
+                    gallons=tank_data["gallons"],
+                )
+                db.session.add(tank)
+
+        db.session.commit()
+        return jsonify(hitch.to_dict())
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+
 @api_bp.route("/hitch/start", methods=["POST"])
 def start_new_hitch():
     """
-    Start a new hitch - clears all operational data and sets baseline.
+    Start a new hitch with complete End of Hitch Sounding Form data.
 
-    Expected JSON:
-    {
-        "start_date": "2025-12-18T00:00:00",
-        "location": "Port Angeles, WA",
-        "total_fuel_gallons": 105055,
-        "lube_oil_15p": 300,
-        "gear_oil_15s": 279,
-        "lube_oil_16p": 304,
-        "hyd_oil_16s": 305,
-        "oily_bilge_17p": {"feet": 0, "inches": 7, "gallons": 137},
-        "dirty_oil_17s": {"feet": 1, "inches": 3, "gallons": 462},
-        "previous_engineer": "Aaron Frahm",
-        "clear_data": true
-    }
+    Expected JSON matches the form structure - see parse_end_of_hitch_image output.
     """
     data = request.get_json()
     if not data:
         return jsonify({"error": "JSON body required"}), 400
 
-    required = ["start_date", "total_fuel_gallons"]
+    required = ["date", "total_fuel_gallons"]
     missing = [f for f in required if f not in data]
     if missing:
         return jsonify({"error": f"Missing fields: {missing}"}), 400
 
     try:
-        # Parse date
-        start_date = datetime.fromisoformat(data["start_date"])
+        # Parse date (handle multiple formats)
+        date_str = data["date"]
+        if "/" in date_str:
+            # Handle MM/DD/YY format
+            parts = date_str.split("/")
+            if len(parts[2]) == 2:
+                parts[2] = "20" + parts[2]
+            hitch_date = datetime(int(parts[2]), int(parts[0]), int(parts[1]))
+        else:
+            hitch_date = datetime.fromisoformat(
+                date_str.replace("T", " ").split(".")[0]
+            )
 
         # Clear existing data if requested
         if data.get("clear_data", True):
             # End any active hitch
-            active_hitch = HitchRecord.query.filter_by(end_date=None).first()
+            active_hitch = HitchRecord.query.filter_by(end_date=None, is_start=True).first()
             if active_hitch:
                 active_hitch.end_date = datetime.utcnow()
 
             # Clear operational tables
+            FuelTankSounding.query.delete()
             DailyFuelTicket.query.delete()
             WeeklySounding.query.delete()
             ORBEntry.query.delete()
@@ -764,81 +867,111 @@ def start_new_hitch():
             OilLevel.query.delete()
             ServiceTankConfig.query.delete()
 
-        # Extract slop tank data
-        oily_bilge = data.get("oily_bilge_17p", {})
-        dirty_oil = data.get("dirty_oil_17s", {})
+        # Parse draft readings
+        draft_fwd = data.get("draft_forward", {})
+        draft_aft = data.get("draft_aft", {})
 
-        # Create new hitch record
+        # Parse slop tanks
+        slop = data.get("slop_tanks", {})
+        oily_bilge = slop.get("17p_oily_bilge", {})
+        dirty_oil = slop.get("17s_dirty_oil", {})
+
+        # Parse service oils
+        service = data.get("service_oils", {})
+
+        # Create hitch record
         hitch = HitchRecord(
-            start_date=start_date,
+            vessel=data.get("vessel", "USNS Arrowhead"),
+            date=hitch_date,
             location=data.get("location"),
-            draft_forward=data.get("draft_forward"),
-            draft_aft=data.get("draft_aft"),
+            charter=data.get("charter", "MSC"),
+            draft_forward_feet=draft_fwd.get("feet"),
+            draft_forward_inches=draft_fwd.get("inches"),
+            draft_aft_feet=draft_aft.get("feet"),
+            draft_aft_inches=draft_aft.get("inches"),
             fuel_on_log=data.get("fuel_on_log"),
             correction=data.get("correction"),
             total_fuel_gallons=data["total_fuel_gallons"],
-            lube_oil_15p=data.get("lube_oil_15p"),
-            gear_oil_15s=data.get("gear_oil_15s"),
-            lube_oil_16p=data.get("lube_oil_16p"),
-            hyd_oil_16s=data.get("hyd_oil_16s"),
-            oily_bilge_17p_gallons=oily_bilge.get("gallons"),
+            lube_oil_15p=service.get("15p_lube"),
+            gear_oil_15s=service.get("15s_gear"),
+            lube_oil_16p=service.get("16p_lube"),
+            hyd_oil_16s=service.get("16s_hyd"),
             oily_bilge_17p_feet=oily_bilge.get("feet"),
             oily_bilge_17p_inches=oily_bilge.get("inches"),
-            dirty_oil_17s_gallons=dirty_oil.get("gallons"),
+            oily_bilge_17p_gallons=oily_bilge.get("gallons"),
             dirty_oil_17s_feet=dirty_oil.get("feet"),
             dirty_oil_17s_inches=dirty_oil.get("inches"),
-            previous_engineer=data.get("previous_engineer"),
+            dirty_oil_17s_gallons=dirty_oil.get("gallons"),
+            engineer_name=data.get("engineer_name"),
+            is_start=True,
         )
         db.session.add(hitch)
+        db.session.flush()  # Get ID before committing
 
-        # Set initial slop tank sounding from baseline
-        if oily_bilge.get("feet") is not None and dirty_oil.get("feet") is not None:
+        # Add fuel tank soundings
+        for tank_data in data.get("fuel_tanks", []):
+            tank = FuelTankSounding(
+                hitch_id=hitch.id,
+                tank_number=tank_data["tank_number"],
+                side=tank_data["side"],
+                is_day_tank=tank_data.get("is_day_tank", False),
+                sounding_feet=tank_data.get("sounding_feet"),
+                sounding_inches=tank_data.get("sounding_inches"),
+                water_present=tank_data.get("water_present", "None"),
+                gallons=tank_data["gallons"],
+            )
+            db.session.add(tank)
+
+        # Initialize slop tank sounding only if user actually provided data
+        # Check for non-null gallons values (more reliable than feet which could legitimately be 0)
+        has_oily_bilge_data = oily_bilge.get("gallons") is not None and oily_bilge.get("gallons") > 0
+        has_dirty_oil_data = dirty_oil.get("gallons") is not None and dirty_oil.get("gallons") > 0
+
+        if has_oily_bilge_data or has_dirty_oil_data:
             sounding_service = get_sounding_service()
-
-            # Convert to m³
-            oily_m3 = sounding_service.gallons_to_m3(oily_bilge.get("gallons", 0))
-            dirty_m3 = sounding_service.gallons_to_m3(dirty_oil.get("gallons", 0))
+            oily_m3 = sounding_service.gallons_to_m3(oily_bilge.get("gallons") or 0)
+            dirty_m3 = sounding_service.gallons_to_m3(dirty_oil.get("gallons") or 0)
 
             initial_sounding = WeeklySounding(
-                recorded_at=start_date,
-                engineer_name=data.get("previous_engineer", "Baseline"),
+                recorded_at=hitch_date,
+                engineer_name=data.get("engineer_name", "Baseline"),
                 engineer_title="Previous Crew",
-                tank_17p_feet=oily_bilge.get("feet", 0),
-                tank_17p_inches=oily_bilge.get("inches", 0),
-                tank_17p_gallons=oily_bilge.get("gallons", 0),
+                tank_17p_feet=oily_bilge.get("feet") or 0,
+                tank_17p_inches=oily_bilge.get("inches") or 0,
+                tank_17p_gallons=int(oily_bilge.get("gallons") or 0),
                 tank_17p_m3=oily_m3,
-                tank_17s_feet=dirty_oil.get("feet", 0),
-                tank_17s_inches=dirty_oil.get("inches", 0),
-                tank_17s_gallons=dirty_oil.get("gallons", 0),
+                tank_17s_feet=dirty_oil.get("feet") or 0,
+                tank_17s_inches=dirty_oil.get("inches") or 0,
+                tank_17s_gallons=int(dirty_oil.get("gallons") or 0),
                 tank_17s_m3=dirty_m3,
             )
             db.session.add(initial_sounding)
 
-        # Set initial oil levels if provided
+        # Initialize oil levels
         if any([
-            data.get("lube_oil_15p"),
-            data.get("gear_oil_15s"),
-            data.get("lube_oil_16p"),
-            data.get("hyd_oil_16s"),
+            service.get("15p_lube"),
+            service.get("15s_gear"),
+            service.get("16p_lube"),
+            service.get("16s_hyd"),
         ]):
             oil_level = OilLevel(
-                recorded_at=start_date,
-                tank_15p_lube=data.get("lube_oil_15p"),
-                tank_15s_gear=data.get("gear_oil_15s"),
-                tank_16p_lube=data.get("lube_oil_16p"),
-                tank_16s_hyd=data.get("hyd_oil_16s"),
+                recorded_at=hitch_date,
+                tank_15p_lube=service.get("15p_lube"),
+                tank_15s_gear=service.get("15s_gear"),
+                tank_16p_lube=service.get("16p_lube"),
+                tank_16s_hyd=service.get("16s_hyd"),
                 source="hitch_baseline",
-                engineer_name=data.get("previous_engineer"),
+                engineer_name=data.get("engineer_name"),
             )
             db.session.add(oil_level)
 
-        # Initialize all equipment as Online
+        # Initialize equipment as Online
         for equip in EQUIPMENT_LIST:
             equipment_status = EquipmentStatus(
                 equipment_id=equip["id"],
                 status="online",
-                updated_at=start_date,
-                updated_by=data.get("previous_engineer", "System"),
+                updated_at=hitch_date,
+                updated_by=data.get("engineer_name", "System"),
             )
             db.session.add(equipment_status)
 
@@ -848,6 +981,97 @@ def start_new_hitch():
             "message": "New hitch started successfully",
             "hitch": hitch.to_dict(),
             "data_cleared": data.get("clear_data", True),
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+
+@api_bp.route("/hitch/end", methods=["POST"])
+def create_end_of_hitch():
+    """
+    Create end-of-hitch record (for printing/handover).
+    Creates a record with is_start=False for the handover documentation.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "JSON body required"}), 400
+
+    required = ["date", "total_fuel_gallons"]
+    missing = [f for f in required if f not in data]
+    if missing:
+        return jsonify({"error": f"Missing fields: {missing}"}), 400
+
+    try:
+        # Parse date
+        date_str = data["date"]
+        if "/" in date_str:
+            parts = date_str.split("/")
+            if len(parts[2]) == 2:
+                parts[2] = "20" + parts[2]
+            hitch_date = datetime(int(parts[2]), int(parts[0]), int(parts[1]))
+        else:
+            hitch_date = datetime.fromisoformat(
+                date_str.replace("T", " ").split(".")[0]
+            )
+
+        # Parse fields
+        draft_fwd = data.get("draft_forward", {})
+        draft_aft = data.get("draft_aft", {})
+        slop = data.get("slop_tanks", {})
+        oily_bilge = slop.get("17p_oily_bilge", {})
+        dirty_oil = slop.get("17s_dirty_oil", {})
+        service = data.get("service_oils", {})
+
+        # Create end-of-hitch record
+        hitch = HitchRecord(
+            vessel=data.get("vessel", "USNS Arrowhead"),
+            date=hitch_date,
+            location=data.get("location"),
+            charter=data.get("charter", "MSC"),
+            draft_forward_feet=draft_fwd.get("feet"),
+            draft_forward_inches=draft_fwd.get("inches"),
+            draft_aft_feet=draft_aft.get("feet"),
+            draft_aft_inches=draft_aft.get("inches"),
+            fuel_on_log=data.get("fuel_on_log"),
+            correction=data.get("correction"),
+            total_fuel_gallons=data["total_fuel_gallons"],
+            lube_oil_15p=service.get("15p_lube"),
+            gear_oil_15s=service.get("15s_gear"),
+            lube_oil_16p=service.get("16p_lube"),
+            hyd_oil_16s=service.get("16s_hyd"),
+            oily_bilge_17p_feet=oily_bilge.get("feet"),
+            oily_bilge_17p_inches=oily_bilge.get("inches"),
+            oily_bilge_17p_gallons=oily_bilge.get("gallons"),
+            dirty_oil_17s_feet=dirty_oil.get("feet"),
+            dirty_oil_17s_inches=dirty_oil.get("inches"),
+            dirty_oil_17s_gallons=dirty_oil.get("gallons"),
+            engineer_name=data.get("engineer_name"),
+            is_start=False,  # This is an end-of-hitch record
+        )
+        db.session.add(hitch)
+        db.session.flush()
+
+        # Add fuel tank soundings
+        for tank_data in data.get("fuel_tanks", []):
+            tank = FuelTankSounding(
+                hitch_id=hitch.id,
+                tank_number=tank_data["tank_number"],
+                side=tank_data["side"],
+                is_day_tank=tank_data.get("is_day_tank", False),
+                sounding_feet=tank_data.get("sounding_feet"),
+                sounding_inches=tank_data.get("sounding_inches"),
+                water_present=tank_data.get("water_present", "None"),
+                gallons=tank_data["gallons"],
+            )
+            db.session.add(tank)
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "End of hitch record created",
+            "hitch": hitch.to_dict(),
         }), 201
 
     except Exception as e:
@@ -871,6 +1095,7 @@ def reset_all_data():
 
     try:
         # Clear all operational tables
+        FuelTankSounding.query.delete()
         DailyFuelTicket.query.delete()
         WeeklySounding.query.delete()
         ORBEntry.query.delete()

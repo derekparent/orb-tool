@@ -285,74 +285,143 @@ class OilLevel(db.Model):
         }
 
 
+class FuelTankSounding(db.Model):
+    """Individual fuel tank sounding record."""
+
+    __tablename__ = "fuel_tank_soundings"
+
+    id: int = db.Column(db.Integer, primary_key=True)
+    hitch_id: int = db.Column(
+        db.Integer, db.ForeignKey("hitch_records.id"), nullable=False
+    )
+
+    tank_number: str = db.Column(db.String(10), nullable=False)  # "7", "9", "11", "13", "14", "18"
+    side: str = db.Column(db.String(4), nullable=False)  # "port" or "stbd"
+    is_day_tank: bool = db.Column(db.Boolean, default=False)  # True for #18
+
+    sounding_feet: int = db.Column(db.Integer, nullable=True)
+    sounding_inches: int = db.Column(db.Integer, nullable=True)
+    water_present: str = db.Column(db.String(20), default="None")  # "None", "Trace", etc.
+    gallons: float = db.Column(db.Float, nullable=False)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        tank_label = f"#{self.tank_number} {'Stbd' if self.side == 'stbd' else 'Port'}"
+        if self.is_day_tank:
+            tank_label += " Day Tank"
+        return {
+            "id": self.id,
+            "tank_number": self.tank_number,
+            "side": self.side,
+            "tank_label": tank_label,
+            "is_day_tank": self.is_day_tank,
+            "sounding_feet": self.sounding_feet,
+            "sounding_inches": self.sounding_inches,
+            "water_present": self.water_present,
+            "gallons": self.gallons,
+        }
+
+
 class HitchRecord(db.Model):
-    """Record of a hitch (21-day rotation) for baseline tracking."""
+    """Complete End of Hitch Sounding Form record."""
 
     __tablename__ = "hitch_records"
 
     id: int = db.Column(db.Integer, primary_key=True)
-    start_date: datetime = db.Column(db.DateTime, nullable=False)
-    end_date: datetime = db.Column(db.DateTime, nullable=True)
 
-    # Header info from End of Hitch form
+    # Header info
+    vessel: str = db.Column(db.String(100), default="USNS Arrowhead")
+    date: datetime = db.Column(db.DateTime, nullable=False)
     location: str = db.Column(db.String(100), nullable=True)
-    draft_forward: str = db.Column(db.String(20), nullable=True)
-    draft_aft: str = db.Column(db.String(20), nullable=True)
+    charter: str = db.Column(db.String(50), default="MSC")
+
+    # Draft readings (separate feet/inches)
+    draft_forward_feet: int = db.Column(db.Integer, nullable=True)
+    draft_forward_inches: int = db.Column(db.Integer, nullable=True)
+    draft_aft_feet: int = db.Column(db.Integer, nullable=True)
+    draft_aft_inches: int = db.Column(db.Integer, nullable=True)
+
+    # Fuel reconciliation
     fuel_on_log: float = db.Column(db.Float, nullable=True)
     correction: float = db.Column(db.Float, nullable=True)
-
-    # Total fuel baseline
     total_fuel_gallons: float = db.Column(db.Float, nullable=False)
 
-    # Service oil baselines
+    # Service oil tanks (gallons only - no soundings)
     lube_oil_15p: float = db.Column(db.Float, nullable=True)
     gear_oil_15s: float = db.Column(db.Float, nullable=True)
     lube_oil_16p: float = db.Column(db.Float, nullable=True)
     hyd_oil_16s: float = db.Column(db.Float, nullable=True)
 
-    # Slop tank baselines
-    oily_bilge_17p_gallons: float = db.Column(db.Float, nullable=True)
+    # Slop tanks (soundings + gallons)
     oily_bilge_17p_feet: int = db.Column(db.Integer, nullable=True)
     oily_bilge_17p_inches: int = db.Column(db.Integer, nullable=True)
-    dirty_oil_17s_gallons: float = db.Column(db.Float, nullable=True)
+    oily_bilge_17p_gallons: float = db.Column(db.Float, nullable=True)
+
     dirty_oil_17s_feet: int = db.Column(db.Integer, nullable=True)
     dirty_oil_17s_inches: int = db.Column(db.Integer, nullable=True)
+    dirty_oil_17s_gallons: float = db.Column(db.Float, nullable=True)
 
-    # Who performed the previous crew's soundings
-    previous_engineer: str = db.Column(db.String(100), nullable=True)
+    # Engineer info
+    engineer_name: str = db.Column(db.String(100), nullable=True)
+
+    # Hitch tracking
+    is_start: bool = db.Column(db.Boolean, default=True)  # True = start of hitch, False = end
+    end_date: datetime = db.Column(db.DateTime, nullable=True)  # When hitch ended
 
     # Metadata
     created_at: datetime = db.Column(
         db.DateTime, nullable=False, default=datetime.utcnow
     )
 
+    # Relationships
+    fuel_tanks = db.relationship(
+        "FuelTankSounding",
+        backref="hitch",
+        lazy=True,
+        cascade="all, delete-orphan",
+    )
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
             "id": self.id,
-            "start_date": self.start_date.isoformat(),
-            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "vessel": self.vessel,
+            "date": self.date.isoformat() if self.date else None,
             "location": self.location,
-            "draft_forward": self.draft_forward,
-            "draft_aft": self.draft_aft,
+            "charter": self.charter,
+            "draft_forward": {
+                "feet": self.draft_forward_feet,
+                "inches": self.draft_forward_inches,
+            },
+            "draft_aft": {
+                "feet": self.draft_aft_feet,
+                "inches": self.draft_aft_inches,
+            },
             "fuel_on_log": self.fuel_on_log,
             "correction": self.correction,
             "total_fuel_gallons": self.total_fuel_gallons,
-            "lube_oil_15p": self.lube_oil_15p,
-            "gear_oil_15s": self.gear_oil_15s,
-            "lube_oil_16p": self.lube_oil_16p,
-            "hyd_oil_16s": self.hyd_oil_16s,
-            "oily_bilge_17p": {
-                "gallons": self.oily_bilge_17p_gallons,
-                "feet": self.oily_bilge_17p_feet,
-                "inches": self.oily_bilge_17p_inches,
+            "service_oils": {
+                "15p_lube": self.lube_oil_15p,
+                "15s_gear": self.gear_oil_15s,
+                "16p_lube": self.lube_oil_16p,
+                "16s_hyd": self.hyd_oil_16s,
             },
-            "dirty_oil_17s": {
-                "gallons": self.dirty_oil_17s_gallons,
-                "feet": self.dirty_oil_17s_feet,
-                "inches": self.dirty_oil_17s_inches,
+            "slop_tanks": {
+                "17p_oily_bilge": {
+                    "feet": self.oily_bilge_17p_feet,
+                    "inches": self.oily_bilge_17p_inches,
+                    "gallons": self.oily_bilge_17p_gallons,
+                },
+                "17s_dirty_oil": {
+                    "feet": self.dirty_oil_17s_feet,
+                    "inches": self.dirty_oil_17s_inches,
+                    "gallons": self.dirty_oil_17s_gallons,
+                },
             },
-            "previous_engineer": self.previous_engineer,
+            "fuel_tanks": [t.to_dict() for t in self.fuel_tanks],
+            "engineer_name": self.engineer_name,
+            "is_start": self.is_start,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
             "created_at": self.created_at.isoformat(),
         }
 

@@ -2,7 +2,7 @@
   "project": "engine_room_status_board",
   "project_path": "/Users/dp/Projects/oil_record_book_tool",
   "phase": 6,
-  "iteration": 3,
+  "iteration": 4,
   "status": "iteration_complete",
   "tech_stack": "python-flask-sqlite",
   "agents": [],
@@ -35,10 +35,16 @@
       "started_at": "2025-12-19T00:00:00",
       "completed_at": "2025-12-19T06:00:00",
       "notes": "Added Start New Hitch feature: HitchRecord model, data reset/clear, baseline import from previous crew, initializes slop tanks/oil levels/equipment status"
+    },
+    {
+      "phase": "iteration",
+      "started_at": "2025-12-19T06:00:00",
+      "completed_at": "2025-12-19T08:00:00",
+      "notes": "Complete End of Hitch form with OCR: Expanded HitchRecord with vessel/charter/drafts, added FuelTankSounding model for 12 fuel tanks, Google Cloud Vision OCR service for photo-to-form parsing, full form UI with upload section"
     }
   ],
   "created_at": "2025-12-12T00:00:00",
-  "last_updated": "2025-12-19T06:00:00",
+  "last_updated": "2025-12-19T08:00:00",
   "mvp_features": {
     "weekly_soundings": "complete",
     "orb_code_c": "complete",
@@ -50,6 +56,8 @@
     "sewage_potable_tracking": "complete",
     "equipment_status": "complete",
     "start_new_hitch": "complete",
+    "end_of_hitch_form": "complete",
+    "ocr_import": "complete",
     "handover_package": "not_started"
   },
   "models": [
@@ -60,7 +68,8 @@
     "StatusEvent",
     "EquipmentStatus",
     "OilLevel",
-    "HitchRecord"
+    "HitchRecord",
+    "FuelTankSounding"
   ],
   "api_endpoints": {
     "tanks": ["GET /api/tanks", "GET /api/tanks/<id>/lookup"],
@@ -68,7 +77,7 @@
     "fuel": ["GET /api/fuel-tickets", "POST /api/fuel-tickets", "GET /api/fuel-tickets/stats", "GET /api/service-tank", "POST /api/service-tank"],
     "status": ["GET /api/status-events", "POST /api/status-events", "GET /api/status-events/latest"],
     "equipment": ["GET /api/equipment", "GET /api/equipment/<id>", "POST /api/equipment/<id>", "POST /api/equipment/bulk"],
-    "hitch": ["GET /api/hitch/current", "POST /api/hitch/start", "POST /api/hitch/reset"],
+    "hitch": ["GET /api/hitch/current", "GET /api/hitch/<id>", "PUT /api/hitch/<id>", "POST /api/hitch/start", "POST /api/hitch/end", "POST /api/hitch/reset", "POST /api/hitch/parse-image"],
     "dashboard": ["GET /api/dashboard/full"]
   }
 }

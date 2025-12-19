@@ -1589,4 +1589,223 @@ body {
   transform: translateY(0);
 }
 
+/* ==========================================
+   Full Hitch Form Styles
+   ========================================== */
+
+/* Fuel Tank Grid */
+.fuel-tank-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.fuel-tank-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.fuel-tank-row .tank-label {
+  width: 130px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.form-input.tiny {
+  width: 50px;
+  text-align: center;
+  padding: var(--space-xs) var(--space-xs);
+}
+
+.form-input.small {
+  width: 60px;
+  text-align: center;
+}
+
+.form-select.small {
+  width: 80px;
+  padding: var(--space-xs);
+}
+
+.total-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-md);
+  font-size: 1.125rem;
+  border: 1px solid var(--accent-primary);
+}
+
+#total-fuel-display {
+  font-weight: 700;
+  color: var(--accent-primary);
+  font-size: 1.25rem;
+}
+
+/* Draft/Sounding Inputs */
+.draft-input,
+.sounding-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.draft-input span,
+.sounding-input span {
+  color: var(--text-muted);
+}
+
+/* Slop Grid */
+.slop-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.slop-tank label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  font-weight: 500;
+}
+
+/* Form Row */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+/* Upload Section */
+.upload-section {
+  margin-bottom: var(--space-lg);
+}
+
+.upload-card {
+  background: var(--bg-card);
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  text-align: center;
+}
+
+.upload-hint {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: var(--space-sm);
+}
+
+.upload-preview {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.upload-preview img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
+.preview-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.preview-actions .btn {
+  flex: 1;
+}
+
+.upload-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.upload-success {
+  color: var(--accent-success);
+  font-size: 1.125rem;
+  font-weight: 600;
+  padding: var(--space-lg);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin: var(--space-lg) 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-default);
+}
+
+/* Section Title */
+.form-section .section-title {
+  font-size: 1rem;
+  margin-bottom: var(--space-md);
+  color: var(--text-primary);
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 600px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .fuel-tank-row {
+    flex-wrap: wrap;
+  }
+
+  .fuel-tank-row .tank-label {
+    width: 100%;
+    margin-bottom: var(--space-xs);
+  }
+
+  .draft-input,
+  .sounding-input {
+    flex-wrap: wrap;
+  }
+
+  .oil-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 
