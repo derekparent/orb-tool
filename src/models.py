@@ -168,3 +168,119 @@ class DailyFuelTicket(db.Model):
             "created_at": self.created_at.isoformat(),
         }
 
+
+# Equipment list constant
+EQUIPMENT_LIST = [
+    {"id": "PME", "name": "Port Main Engine"},
+    {"id": "PRG", "name": "Port Reduction Gear"},
+    {"id": "SME", "name": "STBD Main Engine"},
+    {"id": "SRG", "name": "STBD Reduction Gear"},
+    {"id": "SSDG1", "name": "Generator #1"},
+    {"id": "SSDG2", "name": "Generator #2"},
+    {"id": "SSDG3", "name": "Generator #3"},
+    {"id": "T1", "name": "FWD Bow Thruster"},
+    {"id": "T2", "name": "AFT Bow Thruster"},
+    {"id": "T3", "name": "Stern Thruster"},
+]
+
+
+class StatusEvent(db.Model):
+    """Quick status events (sewage pump, potable load, etc.)."""
+
+    __tablename__ = "status_events"
+
+    id: int = db.Column(db.Integer, primary_key=True)
+    event_type: str = db.Column(db.String(50), nullable=False)  # 'sewage_pump', 'potable_load'
+    event_date: datetime = db.Column(db.DateTime, nullable=False)
+    notes: str = db.Column(db.String(500), nullable=True)
+    engineer_name: str = db.Column(db.String(100), nullable=True)
+
+    # Metadata
+    created_at: datetime = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow
+    )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "event_type": self.event_type,
+            "event_date": self.event_date.isoformat(),
+            "notes": self.notes,
+            "engineer_name": self.engineer_name,
+            "created_at": self.created_at.isoformat(),
+        }
+
+
+class EquipmentStatus(db.Model):
+    """Equipment status tracking."""
+
+    __tablename__ = "equipment_status"
+
+    id: int = db.Column(db.Integer, primary_key=True)
+    equipment_id: str = db.Column(db.String(10), nullable=False)  # 'PME', 'SSDG1', etc.
+    status: str = db.Column(db.String(20), nullable=False)  # 'online', 'issue', 'offline'
+    note: str = db.Column(db.String(500), nullable=True)
+    updated_at: datetime = db.Column(db.DateTime, nullable=False)
+    updated_by: str = db.Column(db.String(100), nullable=False)
+
+    # Metadata
+    created_at: datetime = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow
+    )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        # Find equipment name
+        equip = next((e for e in EQUIPMENT_LIST if e["id"] == self.equipment_id), None)
+        name = equip["name"] if equip else self.equipment_id
+
+        return {
+            "id": self.id,
+            "equipment_id": self.equipment_id,
+            "equipment_name": name,
+            "status": self.status,
+            "note": self.note,
+            "updated_at": self.updated_at.isoformat(),
+            "updated_by": self.updated_by,
+            "created_at": self.created_at.isoformat(),
+        }
+
+
+class OilLevel(db.Model):
+    """Service oil tank level tracking."""
+
+    __tablename__ = "oil_levels"
+
+    id: int = db.Column(db.Integer, primary_key=True)
+    recorded_at: datetime = db.Column(db.DateTime, nullable=False)
+
+    # Tank levels (gallons)
+    tank_15p_lube: float = db.Column(db.Float, nullable=True)
+    tank_15s_gear: float = db.Column(db.Float, nullable=True)
+    tank_16p_lube: float = db.Column(db.Float, nullable=True)
+    tank_16s_hyd: float = db.Column(db.Float, nullable=True)
+
+    # Source of data
+    source: str = db.Column(db.String(50), nullable=True)  # 'fuel_ticket', 'manual', 'hitch_start'
+    engineer_name: str = db.Column(db.String(100), nullable=True)
+
+    # Metadata
+    created_at: datetime = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow
+    )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "recorded_at": self.recorded_at.isoformat(),
+            "tank_15p_lube": self.tank_15p_lube,
+            "tank_15s_gear": self.tank_15s_gear,
+            "tank_16p_lube": self.tank_16p_lube,
+            "tank_16s_hyd": self.tank_16s_hyd,
+            "source": self.source,
+            "engineer_name": self.engineer_name,
+            "created_at": self.created_at.isoformat(),
+        }
+

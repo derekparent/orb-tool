@@ -1128,4 +1128,394 @@ body {
   margin-bottom: var(--space-md);
 }
 
+/* ==========================================
+   Engine Room Status Dashboard
+   ========================================== */
+
+/* Dashboard Top Grid */
+.dashboard-grid-top {
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+@media (min-width: 480px) {
+  .dashboard-grid-top {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+}
+
+/* Status Cards (generic) */
+.status-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  position: relative;
+}
+
+.status-card.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-card.clickable:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+.status-card .card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.status-card .card-icon {
+  font-size: 1.25rem;
+}
+
+.status-card .card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.status-card .card-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-primary);
+  background: rgba(245, 158, 11, 0.1);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.status-card .card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.status-card .stat-item {
+  text-align: center;
+  padding: var(--space-xs);
+  background: var(--bg-dark);
+  border-radius: var(--radius-sm);
+}
+
+.status-card .stat-item .stat-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.status-card .stat-item .stat-label {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* Sewage/Potable Card Main */
+.status-card .card-main {
+  text-align: center;
+  padding: var(--space-sm) 0;
+}
+
+.status-card .main-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.status-card .main-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.status-card .card-footer {
+  text-align: center;
+  margin-top: var(--space-xs);
+}
+
+.status-card .days-ago {
+  font-size: 0.8125rem;
+  color: var(--accent-primary);
+  font-weight: 500;
+}
+
+/* Tank Grid (slop tanks) */
+.tank-grid {
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+@media (min-width: 480px) {
+  .tank-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Equipment Section */
+.equipment-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.equipment-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.equipment-section .section-title {
+  margin-bottom: 0;
+}
+
+.equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+@media (max-width: 480px) {
+  .equipment-grid {
+    grid-template-columns: repeat(5, 1fr);
+    font-size: 0.75rem;
+  }
+}
+
+.equipment-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--bg-dark);
+  transition: all 0.2s;
+}
+
+.equipment-item .eq-id {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.equipment-item .eq-status {
+  font-size: 0.875rem;
+}
+
+.equipment-item.status-online {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.equipment-item.status-online .eq-status {
+  color: var(--accent-success);
+}
+
+.equipment-item.status-issue {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.equipment-item.status-issue .eq-status {
+  color: var(--accent-primary);
+}
+
+.equipment-item.status-offline {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.equipment-item.status-offline .eq-status {
+  color: var(--accent-danger);
+}
+
+.equipment-summary {
+  text-align: center;
+  font-size: 0.8125rem;
+}
+
+.equipment-summary .summary-text {
+  color: var(--text-muted);
+}
+
+.equipment-summary .summary-text.status-online {
+  color: var(--accent-success);
+}
+
+.equipment-summary .summary-text.status-issue {
+  color: var(--accent-primary);
+}
+
+.equipment-summary .summary-text.status-offline {
+  color: var(--accent-danger);
+}
+
+/* Modal Updates */
+.modal.active {
+  visibility: visible;
+  opacity: 1;
+}
+
+.modal.active .modal-content {
+  transform: translateY(0);
+}
+
+.modal-close {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+.modal-header {
+  position: relative;
+  padding-right: 48px;
+}
+
+.modal-lg {
+  max-width: 500px;
+}
+
+/* Equipment Form in Modal */
+.equipment-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.equipment-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm);
+  background: var(--bg-dark);
+  border-radius: var(--radius-md);
+}
+
+.equipment-row .eq-info {
+  min-width: 100px;
+}
+
+.equipment-row .eq-name {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--accent-primary);
+  display: block;
+}
+
+.equipment-row .eq-desc {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.equipment-row .eq-controls {
+  flex: 1;
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.equipment-row .status-select {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  min-width: 100px;
+}
+
+.equipment-row .note-input {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.equipment-row .note-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.equipment-row .note-input::placeholder {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* Form group updates */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.form-group input[type="date"],
+.form-group input[type="text"] {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-dark);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+/* Action row update */
+.action-row {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.action-row .btn {
+  flex: 1;
+  min-width: 140px;
+}
+
 

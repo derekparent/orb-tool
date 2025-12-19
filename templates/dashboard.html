@@ -1,43 +1,73 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - ORB Tool{% endblock %}
+{% block title %}Dashboard - Engine Room Status{% endblock %}
 
 {% block content %}
 <div class="dashboard">
     <header class="page-header">
         <h1>Engine Room Status</h1>
-        <p class="page-subtitle">Live fuel & tank overview</p>
+        <p class="page-subtitle">Live operational overview</p>
     </header>
 
-    <!-- Fuel Consumption Card -->
-    <div class="fuel-card" id="fuel-card">
-        <div class="fuel-header">
-            <div class="fuel-title">
-                <span class="fuel-icon">⛽</span>
-                <span>Daily Fuel</span>
+    <!-- Top Row: Fuel + Status Events -->
+    <div class="dashboard-grid-top">
+        <!-- Fuel Consumption Card -->
+        <div class="status-card fuel-card" id="fuel-card">
+            <div class="card-header">
+                <span class="card-icon">⛽</span>
+                <span class="card-title">Current Fuel</span>
+                <span class="card-badge" id="fuel-active-tank">--</span>
             </div>
-            <div class="fuel-tank" id="fuel-active-tank">--</div>
+            <div class="card-stats">
+                <div class="stat-item">
+                    <span class="stat-value" id="fuel-today">--</span>
+                    <span class="stat-label">Today (gal)</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="fuel-avg">--</span>
+                    <span class="stat-label">Avg/Day</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="fuel-total">--</span>
+                    <span class="stat-label">This Hitch</span>
+                </div>
+            </div>
+            <a href="/fuel" class="btn btn-sm">+ Fuel Ticket</a>
         </div>
-        <div class="fuel-stats-row">
-            <div class="fuel-stat">
-                <span class="fuel-stat-value" id="fuel-today">--</span>
-                <span class="fuel-stat-label">Today (gal)</span>
+
+        <!-- Sewage Card -->
+        <div class="status-card clickable" id="sewage-card" data-event-type="sewage_pump">
+            <div class="card-header">
+                <span class="card-icon">🚽</span>
+                <span class="card-title">Sewage</span>
             </div>
-            <div class="fuel-stat">
-                <span class="fuel-stat-value" id="fuel-avg">--</span>
-                <span class="fuel-stat-label">Avg/Day (7d)</span>
+            <div class="card-main">
+                <span class="main-value" id="sewage-date">--</span>
+                <span class="main-label">Last Pumped</span>
             </div>
-            <div class="fuel-stat">
-                <span class="fuel-stat-value" id="fuel-total">--</span>
-                <span class="fuel-stat-label">This Hitch</span>
+            <div class="card-footer">
+                <span class="days-ago" id="sewage-days">--</span>
             </div>
         </div>
-        <a href="/fuel" class="btn btn-primary btn-sm fuel-btn">+ Add Fuel Ticket</a>
+
+        <!-- Potable Card -->
+        <div class="status-card clickable" id="potable-card" data-event-type="potable_load">
+            <div class="card-header">
+                <span class="card-icon">💧</span>
+                <span class="card-title">Potable</span>
+            </div>
+            <div class="card-main">
+                <span class="main-value" id="potable-date">--</span>
+                <span class="main-label">Last Loaded</span>
+            </div>
+            <div class="card-footer">
+                <span class="days-ago" id="potable-days">--</span>
+            </div>
+        </div>
     </div>
 
-    <!-- Slop Tank Section Header -->
-    <h2 class="section-title">Slop Tanks</h2>
-
-    <div class="status-grid" id="status-grid">
+    <!-- Slop Tank Section -->
+    <h2 class="section-title">Slop Tanks (ORB)</h2>
+    <div class="tank-grid" id="tank-grid">
         <!-- Tank 17P - Oily Water -->
         <div class="tank-card" data-tank="17P">
             <div class="tank-header">
@@ -79,6 +109,21 @@
         </div>
     </div>
 
+    <!-- Equipment Status Section -->
+    <div class="equipment-section">
+        <div class="section-header">
+            <h2 class="section-title">Equipment Status</h2>
+            <button class="btn btn-sm btn-secondary" id="edit-equipment-btn">Edit</button>
+        </div>
+        <div class="equipment-grid" id="equipment-grid">
+            <!-- Equipment items will be populated by JS -->
+        </div>
+        <div class="equipment-summary" id="equipment-summary">
+            <span class="summary-text">All systems: Online (NTR)</span>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
     <div class="stats-row" id="stats-row">
         <div class="stat-card">
             <div class="stat-value" id="stat-soundings">--</div>
@@ -89,123 +134,413 @@
             <div class="stat-label">ORB Entries</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value" id="stat-last-date">--</div>
-            <div class="stat-label">Last Entry</div>
+            <div class="stat-value" id="stat-fuel-tickets">--</div>
+            <div class="stat-label">Fuel Tickets</div>
         </div>
     </div>
 
+    <!-- Action Row -->
     <div class="action-row">
-        <a href="/soundings" class="btn btn-primary btn-lg">
+        <a href="/soundings" class="btn btn-primary">
             <span class="btn-icon">+</span>
-            New Sounding
+            Weekly Sounding
+        </a>
+        <a href="/fuel" class="btn btn-secondary">
+            <span class="btn-icon">+</span>
+            Fuel Ticket
         </a>
     </div>
+</div>
 
-    <div class="empty-state" id="empty-state" style="display: none;">
-        <div class="empty-icon">📊</div>
-        <h2>No Soundings Yet</h2>
-        <p>Record your first weekly slop tank sounding to get started.</p>
-        <a href="/soundings" class="btn btn-primary">Record Sounding</a>
+<!-- Date Picker Modal for Sewage/Potable -->
+<div class="modal" id="date-modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="date-modal-title">Update Date</h2>
+            <button class="modal-close" id="date-modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="event-date">Date</label>
+                <input type="date" id="event-date" required>
+            </div>
+            <div class="form-group">
+                <label for="event-notes">Notes (optional)</label>
+                <input type="text" id="event-notes" placeholder="e.g., At dock">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="date-modal-cancel">Cancel</button>
+            <button class="btn btn-primary" id="date-modal-save">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Equipment Edit Modal -->
+<div class="modal" id="equipment-modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h2>Equipment Status</h2>
+            <button class="modal-close" id="equipment-modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="equipment-form" id="equipment-form">
+                <!-- Equipment rows will be populated by JS -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="equipment-modal-cancel">Cancel</button>
+            <button class="btn btn-primary" id="equipment-modal-save">Save All</button>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// Equipment list
+const EQUIPMENT = [
+    { id: 'PME', name: 'Port Main Engine' },
+    { id: 'PRG', name: 'Port Reduction Gear' },
+    { id: 'SME', name: 'STBD Main Engine' },
+    { id: 'SRG', name: 'STBD Reduction Gear' },
+    { id: 'SSDG1', name: 'Generator #1' },
+    { id: 'SSDG2', name: 'Generator #2' },
+    { id: 'SSDG3', name: 'Generator #3' },
+    { id: 'T1', name: 'FWD Bow Thruster' },
+    { id: 'T2', name: 'AFT Bow Thruster' },
+    { id: 'T3', name: 'Stern Thruster' }
+];
+
+let currentEventType = null;
+let equipmentData = [];
+let tankMetadata = {};  // Store tank capacities from API
+
 document.addEventListener('DOMContentLoaded', () => {
-    loadDashboard();
-    loadFuelStats();
+    loadTankMetadata();
+    loadFullDashboard();
+    setupEventListeners();
 });
 
-async function loadFuelStats() {
+async function loadTankMetadata() {
     try {
-        const response = await fetch('/api/fuel-tickets/stats');
-        const stats = await response.json();
-
-        // Active tank
-        if (stats.active_tank) {
-            document.getElementById('fuel-active-tank').textContent = '#' + stats.active_tank.tank_pair + ' P/S';
-        }
-
-        // Today's consumption
-        let todayVal = '--';
-        if (stats.latest_ticket) {
-            const ticketDate = new Date(stats.latest_ticket.ticket_date);
-            const today = new Date();
-            if (ticketDate.toDateString() === today.toDateString()) {
-                todayVal = stats.latest_ticket.consumption_gallons;
-            }
-        }
-        document.getElementById('fuel-today').textContent = todayVal;
-
-        // Weekly average
-        document.getElementById('fuel-avg').textContent = 
-            stats.weekly.average_daily > 0 ? stats.weekly.average_daily : '--';
-
-        // Total
-        document.getElementById('fuel-total').textContent = 
-            stats.all_time.total_gallons > 0 ? stats.all_time.total_gallons : '--';
-
+        const response = await fetch('/api/tanks');
+        tankMetadata = await response.json();
     } catch (error) {
-        console.error('Failed to load fuel stats:', error);
+        console.error('Failed to load tank metadata:', error);
+        // Fallback to known defaults if API fails
+        tankMetadata = {
+            '17P': { capacity_gallons: 1607 },
+            '17S': { capacity_gallons: 1607 }
+        };
     }
 }
 
-async function loadDashboard() {
+function setupEventListeners() {
+    // Sewage/Potable cards
+    document.getElementById('sewage-card').addEventListener('click', () => openDateModal('sewage_pump', 'Sewage Pumped'));
+    document.getElementById('potable-card').addEventListener('click', () => openDateModal('potable_load', 'Potable Loaded'));
+
+    // Date modal
+    document.getElementById('date-modal-close').addEventListener('click', closeDateModal);
+    document.getElementById('date-modal-cancel').addEventListener('click', closeDateModal);
+    document.getElementById('date-modal-save').addEventListener('click', saveDateEvent);
+    document.querySelector('#date-modal .modal-backdrop').addEventListener('click', closeDateModal);
+
+    // Equipment modal
+    document.getElementById('edit-equipment-btn').addEventListener('click', openEquipmentModal);
+    document.getElementById('equipment-modal-close').addEventListener('click', closeEquipmentModal);
+    document.getElementById('equipment-modal-cancel').addEventListener('click', closeEquipmentModal);
+    document.getElementById('equipment-modal-save').addEventListener('click', saveEquipmentStatus);
+    document.querySelector('#equipment-modal .modal-backdrop').addEventListener('click', closeEquipmentModal);
+}
+
+async function loadFullDashboard() {
     try {
-        const response = await fetch('/api/dashboard/stats');
-        const stats = await response.json();
+        const response = await fetch('/api/dashboard/full');
+        const data = await response.json();
 
-        if (stats.total_soundings === 0) {
-            document.getElementById('status-grid').style.display = 'none';
-            document.getElementById('stats-row').style.display = 'none';
-            document.querySelector('.action-row').style.display = 'none';
-            document.getElementById('empty-state').style.display = 'block';
-            return;
-        }
+        updateFuelStats(data.fuel);
+        updateStatusEvents(data.status_events);
+        updateSlopTanks(data.slop_tanks);
+        updateEquipment(data.equipment);
+        updateCounts(data.counts);
 
-        // Update stats
-        document.getElementById('stat-soundings').textContent = stats.total_soundings;
-        document.getElementById('stat-entries').textContent = stats.total_orb_entries;
-
-        if (stats.latest_sounding) {
-            const latest = stats.latest_sounding;
-            const date = new Date(latest.recorded_at);
-            document.getElementById('stat-last-date').textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-            // Tank 17P
-            const pct17p = (latest.tank_17p.gallons / 1607) * 100;
-            document.getElementById('tank-17p-fill').style.width = pct17p + '%';
-            document.getElementById('tank-17p-gallons').textContent = latest.tank_17p.gallons + ' gal';
-            document.getElementById('tank-17p-m3').textContent = latest.tank_17p.m3.toFixed(2) + ' m³';
-            document.getElementById('tank-17p-sounding').textContent = `${latest.tank_17p.feet}' ${latest.tank_17p.inches}"`;
-
-            // Tank 17S
-            const pct17s = (latest.tank_17s.gallons / 1607) * 100;
-            document.getElementById('tank-17s-fill').style.width = pct17s + '%';
-            document.getElementById('tank-17s-gallons').textContent = latest.tank_17s.gallons + ' gal';
-            document.getElementById('tank-17s-m3').textContent = latest.tank_17s.m3.toFixed(2) + ' m³';
-            document.getElementById('tank-17s-sounding').textContent = `${latest.tank_17s.feet}' ${latest.tank_17s.inches}"`;
-
-            // Deltas
-            if (stats.deltas) {
-                const delta17p = stats.deltas.tank_17p_gallons;
-                const delta17s = stats.deltas.tank_17s_gallons;
-                
-                const el17p = document.getElementById('tank-17p-delta');
-                const el17s = document.getElementById('tank-17s-delta');
-                
-                el17p.textContent = (delta17p >= 0 ? '+' : '') + delta17p + ' gal';
-                el17p.className = 'tank-delta ' + (delta17p > 0 ? 'delta-up' : delta17p < 0 ? 'delta-down' : '');
-                
-                el17s.textContent = (delta17s >= 0 ? '+' : '') + delta17s + ' gal';
-                el17s.className = 'tank-delta ' + (delta17s > 0 ? 'delta-up' : delta17s < 0 ? 'delta-down' : '');
-            }
-        }
     } catch (error) {
         console.error('Failed to load dashboard:', error);
     }
 }
+
+function updateFuelStats(fuel) {
+    if (fuel.active_tank) {
+        document.getElementById('fuel-active-tank').textContent = fuel.active_tank.tank_pair_display;
+    }
+
+    // Today's consumption
+    let todayVal = '--';
+    if (fuel.latest_ticket) {
+        const ticketDate = new Date(fuel.latest_ticket.ticket_date);
+        const today = new Date();
+        if (ticketDate.toDateString() === today.toDateString()) {
+            todayVal = Math.round(fuel.latest_ticket.consumption_gallons);
+        }
+    }
+    document.getElementById('fuel-today').textContent = todayVal;
+
+    // Weekly average
+    document.getElementById('fuel-avg').textContent = 
+        fuel.weekly && fuel.weekly.average_daily > 0 ? Math.round(fuel.weekly.average_daily) : '--';
+
+    // Total
+    document.getElementById('fuel-total').textContent = 
+        fuel.stats && fuel.stats.total_gallons > 0 ? Math.round(fuel.stats.total_gallons) : '--';
+}
+
+function updateStatusEvents(events) {
+    // Sewage
+    if (events.sewage) {
+        const date = new Date(events.sewage.event_date);
+        document.getElementById('sewage-date').textContent = formatDate(date);
+        document.getElementById('sewage-days').textContent = getDaysAgo(date);
+    }
+
+    // Potable
+    if (events.potable) {
+        const date = new Date(events.potable.event_date);
+        document.getElementById('potable-date').textContent = formatDate(date);
+        document.getElementById('potable-days').textContent = getDaysAgo(date);
+    }
+}
+
+function updateSlopTanks(slop) {
+    if (!slop.latest) return;
+
+    const latest = slop.latest;
+
+    // Get capacities from metadata (with fallback)
+    const cap17p = tankMetadata['17P']?.capacity_gallons || 1607;
+    const cap17s = tankMetadata['17S']?.capacity_gallons || 1607;
+
+    // Tank 17P
+    const pct17p = (latest.tank_17p.gallons / cap17p) * 100;
+    document.getElementById('tank-17p-fill').style.width = pct17p + '%';
+    document.getElementById('tank-17p-gallons').textContent = latest.tank_17p.gallons + ' gal';
+    document.getElementById('tank-17p-m3').textContent = latest.tank_17p.m3.toFixed(2) + ' m³';
+    document.getElementById('tank-17p-sounding').textContent = `${latest.tank_17p.feet}' ${latest.tank_17p.inches}"`;
+
+    // Tank 17S
+    const pct17s = (latest.tank_17s.gallons / cap17s) * 100;
+    document.getElementById('tank-17s-fill').style.width = pct17s + '%';
+    document.getElementById('tank-17s-gallons').textContent = latest.tank_17s.gallons + ' gal';
+    document.getElementById('tank-17s-m3').textContent = latest.tank_17s.m3.toFixed(2) + ' m³';
+    document.getElementById('tank-17s-sounding').textContent = `${latest.tank_17s.feet}' ${latest.tank_17s.inches}"`;
+}
+
+function updateEquipment(equipment) {
+    equipmentData = equipment;
+    const grid = document.getElementById('equipment-grid');
+    grid.innerHTML = '';
+
+    let issueCount = 0;
+    let offlineCount = 0;
+
+    equipment.forEach(eq => {
+        const item = document.createElement('div');
+        item.className = `equipment-item status-${eq.status}`;
+        item.innerHTML = `
+            <span class="eq-id">${eq.id}</span>
+            <span class="eq-status">${getStatusIcon(eq.status)}</span>
+        `;
+        if (eq.note) {
+            item.title = eq.note;
+        }
+        grid.appendChild(item);
+
+        if (eq.status === 'issue') issueCount++;
+        if (eq.status === 'offline') offlineCount++;
+    });
+
+    // Update summary
+    const summary = document.getElementById('equipment-summary');
+    if (offlineCount > 0) {
+        summary.innerHTML = `<span class="summary-text status-offline">${offlineCount} offline, ${issueCount} issues</span>`;
+    } else if (issueCount > 0) {
+        summary.innerHTML = `<span class="summary-text status-issue">${issueCount} issues</span>`;
+    } else {
+        summary.innerHTML = `<span class="summary-text status-online">All systems: Online (NTR)</span>`;
+    }
+}
+
+function updateCounts(counts) {
+    document.getElementById('stat-soundings').textContent = counts.soundings || '--';
+    document.getElementById('stat-entries').textContent = counts.orb_entries || '--';
+    document.getElementById('stat-fuel-tickets').textContent = counts.fuel_tickets || '--';
+}
+
+// Date Modal
+function openDateModal(eventType, title) {
+    currentEventType = eventType;
+    document.getElementById('date-modal-title').textContent = title;
+    document.getElementById('event-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('event-notes').value = '';
+    document.getElementById('date-modal').classList.add('active');
+}
+
+function closeDateModal() {
+    document.getElementById('date-modal').classList.remove('active');
+    currentEventType = null;
+}
+
+async function saveDateEvent() {
+    const date = document.getElementById('event-date').value;
+    const notes = document.getElementById('event-notes').value;
+
+    if (!date) {
+        alert('Please select a date');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/status-events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event_type: currentEventType,
+                event_date: date + 'T12:00:00',
+                notes: notes || null,
+                engineer_name: 'DP'
+            })
+        });
+
+        if (response.ok) {
+            closeDateModal();
+            loadFullDashboard();
+        } else {
+            const err = await response.json();
+            alert('Error: ' + err.error);
+        }
+    } catch (error) {
+        alert('Failed to save: ' + error.message);
+    }
+}
+
+// Equipment Modal
+function openEquipmentModal() {
+    const form = document.getElementById('equipment-form');
+    form.innerHTML = '';
+
+    equipmentData.forEach(eq => {
+        const row = document.createElement('div');
+        row.className = 'equipment-row';
+        row.innerHTML = `
+            <div class="eq-info">
+                <span class="eq-name">${eq.id}</span>
+                <span class="eq-desc">${eq.name}</span>
+            </div>
+            <div class="eq-controls">
+                <select class="status-select" data-eq="${eq.id}">
+                    <option value="online" ${eq.status === 'online' ? 'selected' : ''}>✓ Online</option>
+                    <option value="issue" ${eq.status === 'issue' ? 'selected' : ''}>⚠ Issue</option>
+                    <option value="offline" ${eq.status === 'offline' ? 'selected' : ''}>✗ Offline</option>
+                </select>
+                <input type="text" class="note-input" data-eq="${eq.id}" 
+                       placeholder="Note (required if not online)" 
+                       value="${eq.note || ''}"
+                       ${eq.status === 'online' ? 'disabled' : ''}>
+            </div>
+        `;
+        form.appendChild(row);
+    });
+
+    // Add change listeners for status selects
+    form.querySelectorAll('.status-select').forEach(sel => {
+        sel.addEventListener('change', (e) => {
+            const noteInput = form.querySelector(`.note-input[data-eq="${e.target.dataset.eq}"]`);
+            noteInput.disabled = e.target.value === 'online';
+            if (e.target.value === 'online') {
+                noteInput.value = '';
+            }
+        });
+    });
+
+    document.getElementById('equipment-modal').classList.add('active');
+}
+
+function closeEquipmentModal() {
+    document.getElementById('equipment-modal').classList.remove('active');
+}
+
+async function saveEquipmentStatus() {
+    const form = document.getElementById('equipment-form');
+    const updates = [];
+
+    form.querySelectorAll('.equipment-row').forEach(row => {
+        const select = row.querySelector('.status-select');
+        const noteInput = row.querySelector('.note-input');
+        const eqId = select.dataset.eq;
+        const status = select.value;
+        const note = noteInput.value;
+
+        // Only include if changed or not online with note
+        updates.push({
+            equipment_id: eqId,
+            status: status,
+            note: status !== 'online' ? note : null
+        });
+    });
+
+    // Validate notes for non-online
+    for (const u of updates) {
+        if (u.status !== 'online' && !u.note) {
+            alert(`Note required for ${u.equipment_id} (${u.status})`);
+            return;
+        }
+    }
+
+    try {
+        const response = await fetch('/api/equipment/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                updates: updates,
+                updated_by: 'DP'
+            })
+        });
+
+        if (response.ok) {
+            closeEquipmentModal();
+            loadFullDashboard();
+        } else {
+            const err = await response.json();
+            alert('Error: ' + err.error);
+        }
+    } catch (error) {
+        alert('Failed to save: ' + error.message);
+    }
+}
+
+// Helpers
+function getStatusIcon(status) {
+    switch(status) {
+        case 'online': return '✓';
+        case 'issue': return '⚠';
+        case 'offline': return '✗';
+        default: return '?';
+    }
+}
+
+function formatDate(date) {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function getDaysAgo(date) {
+    const now = new Date();
+    const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    if (diff === 0) return 'Today';
+    if (diff === 1) return '1 day ago';
+    return `${diff} days ago`;
+}
 </script>
 {% endblock %}
-
