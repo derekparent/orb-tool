@@ -264,8 +264,14 @@ async function handleSubmit(e) {
             const result = await response.json();
             
             // Show success modal with ORB entries
-            const entryC = result.orb_entries.find(e => e.code === 'C');
-            const entryI = result.orb_entries.find(e => e.code === 'I');
+            const entryC = result.orb_entries?.find(e => e.code === 'C');
+            const entryI = result.orb_entries?.find(e => e.code === 'I');
+            
+            if (!entryC || !entryI) {
+                alert('Error: ORB entries not generated correctly. Please try again.');
+                console.error('Missing ORB entries:', { entryC, entryI, result });
+                return;
+            }
             
             document.getElementById('entry-c-text').textContent = entryC.entry_text;
             document.getElementById('entry-i-text').textContent = entryI.entry_text;
