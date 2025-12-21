@@ -48,3 +48,11 @@ logs/
 # Local dev
 CLAUDE.local.md
 *.local.md
+
+# Multi-Agent Workflow
+metrics.json
+quality_audit_report.txt
+merge_order.txt
+merge_order.json
+DASHBOARD.md
+.coverage.json
