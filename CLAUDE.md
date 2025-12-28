@@ -77,3 +77,16 @@ Just say "Done." - no summaries unless asked.
 - Daily fuel tickets → live dashboard
 - Weekly slop tank soundings → ORB entry generation (Code C and I)
 - Print handover package for crew rotation
+
+## Workflow Tracking
+
+After completing significant work, update these files:
+
+1. **WORKFLOW_STATE.json** - Update status, phase, test counts, and add to history
+2. **PROJECT_LEARNINGS.md** - Capture patterns, gotchas, and decisions
+
+Do this automatically at the end of:
+- Completing a feature or fix
+- Finishing a wave/phase
+- Integration work
+- Any session with notable learnings

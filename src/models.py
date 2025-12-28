@@ -112,7 +112,7 @@ class WeeklySounding(db.Model):
 
     # Metadata
     created_at: datetime = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
 
     def to_dict(self) -> dict:
@@ -156,7 +156,7 @@ class ORBEntry(db.Model):
 
     # Metadata
     created_at: datetime = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
 
     def to_dict(self) -> dict:
@@ -184,7 +184,7 @@ class ServiceTankConfig(db.Model):
 
     # Metadata
     created_at: datetime = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
 
     @property
@@ -232,7 +232,7 @@ class DailyFuelTicket(db.Model):
 
     # Metadata
     created_at: datetime = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
 
     def to_dict(self) -> dict:
@@ -279,7 +279,7 @@ class StatusEvent(db.Model):
 
     # Metadata
     created_at: datetime = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
 
     def to_dict(self) -> dict:
@@ -308,7 +308,7 @@ class EquipmentStatus(db.Model):
 
     # Metadata
     created_at: datetime = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
 
     def to_dict(self) -> dict:
@@ -349,7 +349,7 @@ class OilLevel(db.Model):
 
     # Metadata
     created_at: datetime = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
 
     def to_dict(self) -> dict:
@@ -452,7 +452,7 @@ class HitchRecord(db.Model):
 
     # Metadata
     created_at: datetime = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
     )
 
     # Relationships

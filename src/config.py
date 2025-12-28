@@ -19,6 +19,22 @@ class Config:
     # Data files
     SOUNDING_TABLES_PATH = BASE_DIR / "data" / "sounding_tables.json"
 
+    # Security settings
+    WTF_CSRF_ENABLED = True
+    WTF_CSRF_TIME_LIMIT = 3600  # 1 hour
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB file upload limit
+
+    # Rate limiting storage (in production use Redis)
+    RATELIMIT_STORAGE_URL = os.environ.get("REDIS_URL", "memory://")
+
+    # CORS settings
+    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5001,https://localhost:5001").split(",")
+
+    # Session security
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_SECURE", "False").lower() == "true"
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+
 
 class DevelopmentConfig(Config):
     """Development configuration."""

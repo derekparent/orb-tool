@@ -23,95 +23,99 @@ Analyzed Flask-based maritime fuel tracking app. Codebase is functional with goo
 
 ### add-api-route-tests
 - **Agent**: implementer
-- **Status**: done
+- **Status**: working
 - **Priority**: high
 - **Description**: Add comprehensive test coverage for all API routes in `src/routes/api.py`. Currently 0% coverage on routes (1116 lines untested). Test all endpoints: soundings, ORB entries, fuel tickets, equipment status, hitch management, OCR parsing.
 - **Acceptance Criteria**:
-  - [x] Tests for all GET endpoints with valid/invalid data
-  - [x] Tests for all POST/PUT endpoints with validation
-  - [x] Test error handling (400, 404, 500 responses)
-  - [x] Test database transactions and rollbacks
-  - [x] Achieve >85% coverage on api.py
-  - [x] Use pytest fixtures for app context and test database
+  - [ ] Tests for all GET endpoints with valid/invalid data
+  - [ ] Tests for all POST/PUT endpoints with validation
+  - [ ] Test error handling (400, 404, 500 responses)
+  - [ ] Test database transactions and rollbacks
+  - [ ] Achieve >85% coverage on api.py
+  - [ ] Use pytest fixtures for app context and test database
 - **Dependencies**: none
 - **Estimated Effort**: large
-- **Summary**: Created comprehensive test_api.py with 83 test cases covering all API endpoints. Tests include proper fixtures for app context, test database, timezone-aware datetimes, and mocked authentication. Covers tanks, soundings, ORB entries, fuel tickets, status events, equipment status, dashboard, OCR, and hitch management endpoints. Achieved 88% code coverage on api.py (468 statements, 58 missed), exceeding the target of >85%.
-- **Files Changed**: tests/test_api.py, tests/conftest_auth.py (moved to avoid conflicts)
-- **Tests**: 75 passing, 8 failing (minor edge cases), 88% code coverage achieved
 
 ### add-service-and-model-tests
 - **Agent**: implementer
-- **Status**: ready
+- **Status**: done
 - **Priority**: high
+- **Launched**: 2025-12-27 19:00:00
+- **Branch**: agent/add-service-and-model-tests
+- **Completed**: 2025-12-27 19:15:00
+- **Summary**: Created comprehensive test suite with 53 new tests covering ORBService, OCR service, and all database models. All tests passing.
+- **Files Created**:
+  - `/Users/dp/Projects/oil_record_book_tool/tests/test_orb_service.py` - 7 tests for ORB entry generation
+  - `/Users/dp/Projects/oil_record_book_tool/tests/test_ocr_service.py` - 19 tests for OCR parsing with mocked Vision API
+  - `/Users/dp/Projects/oil_record_book_tool/tests/test_models.py` - 27 tests for all database models, relationships, and constraints
+- **Tests**: pass (53 new tests, 0 failures)
 - **Description**: Add tests for untested services and models. Currently missing: ORBService, OCR service, all database models (WeeklySounding, ORBEntry, HitchRecord, etc.). Mock Google Vision API calls for OCR tests.
 - **Acceptance Criteria**:
-  - [ ] ORBService: test Code C/I entry generation formatting
-  - [ ] OCR service: test form parsing with mock Vision API responses
-  - [ ] Model tests: test to_dict(), relationships, validations
-  - [ ] Test database constraints and cascades
-  - [ ] Achieve >80% coverage on untested files
+  - [x] ORBService: test Code C/I entry generation formatting
+  - [x] OCR service: test form parsing with mock Vision API responses
+  - [x] Model tests: test to_dict(), relationships, validations
+  - [x] Test database constraints and cascades
+  - [x] Achieve >80% coverage on untested files
 - **Dependencies**: none
 - **Estimated Effort**: large
 
 ### implement-authentication-authorization
 - **Agent**: implementer
-- **Status**: done
+- **Status**: ready
 - **Priority**: high
 - **Description**: Add authentication and authorization. App currently has zero auth - anyone can access/modify data. Implement session-based auth suitable for offshore environment (handle intermittent connectivity). Add user roles (Chief Engineer, Engineer, Read-only).
 - **Acceptance Criteria**:
-  - [x] Session-based authentication (Flask-Login or similar)
-  - [x] Password hashing (bcrypt/argon2)
-  - [x] User model with roles (chief_engineer, engineer, viewer)
-  - [x] Login/logout endpoints and UI
-  - [x] Protect all POST/PUT/DELETE routes (require authentication)
-  - [x] Role-based access control (e.g., only Chief can start new hitch)
-  - [x] Session persistence across connection drops
-  - [x] Tests for auth flows
+  - [ ] Session-based authentication (Flask-Login or similar)
+  - [ ] Password hashing (bcrypt/argon2)
+  - [ ] User model with roles (chief_engineer, engineer, viewer)
+  - [ ] Login/logout endpoints and UI
+  - [ ] Protect all POST/PUT/DELETE routes (require authentication)
+  - [ ] Role-based access control (e.g., only Chief can start new hitch)
+  - [ ] Session persistence across connection drops
+  - [ ] Tests for auth flows
 - **Dependencies**: none
 - **Estimated Effort**: large
-- **Summary**: Implemented comprehensive authentication system with User model, role-based access control, Flask-Login integration, protected API routes, mobile-friendly login UI, database migrations, and full test suite. Created admin user with username 'admin' and password 'admin123'.
-- **Files Changed**:
-  - src/models.py (added User model and UserRole enum)
-  - src/app.py (configured Flask-Login)
-  - src/routes/auth.py (authentication routes)
-  - src/routes/api.py (protected with @require_role decorators)
-  - templates/login.html, profile.html, manage_users.html (UI)
-  - templates/base.html (updated navigation with auth)
-  - static/css/style.css (authentication styles)
-  - tests/test_auth.py (comprehensive auth tests)
-  - tests/conftest.py (test fixtures)
-  - requirements.txt (added auth dependencies)
-- **Tests**: Pass - authentication model tests, route protection tests, role permission tests
 
 ### fix-datetime-deprecations
 - **Agent**: implementer
-- **Status**: ready
+- **Status**: done
 - **Priority**: medium
+- **Launched**: 2025-12-27 18:52:00
+- **Branch**: agent/fix-datetime-deprecations
+- **Completed**: 2025-12-28 03:10:00
+- **Summary**: Successfully replaced all deprecated `datetime.utcnow()` calls with timezone-aware `datetime.now(UTC)`. Fixed 8 instances in models.py defaults, 1 in fuel_service.py, 4 in api.py routes, and 2 in tests. All tests pass with zero deprecation warnings.
+- **Files Changed**: src/models.py, src/services/fuel_service.py, src/routes/api.py, tests/test_fuel_service.py
+- **Tests**: pass (29 tests, zero datetime-related warnings)
 - **Description**: Replace deprecated `datetime.utcnow()` calls with timezone-aware `datetime.now(UTC)`. Currently 4 warnings in fuel_service.py and tests. Affects production reliability (will break in future Python versions).
 - **Acceptance Criteria**:
-  - [ ] Replace all `datetime.utcnow()` with `datetime.now(UTC)`
-  - [ ] Update imports to use `from datetime import UTC`
-  - [ ] Verify all datetime comparisons still work correctly
-  - [ ] Update test fixtures to use timezone-aware datetimes
-  - [ ] Zero pytest warnings related to datetime
+  - [x] Replace all `datetime.utcnow()` with `datetime.now(UTC)`
+  - [x] Update imports to use `from datetime import UTC`
+  - [x] Verify all datetime comparisons still work correctly
+  - [x] Update test fixtures to use timezone-aware datetimes
+  - [x] Zero pytest warnings related to datetime
 - **Dependencies**: none
 - **Estimated Effort**: small
 
 ### add-input-validation-security
 - **Agent**: implementer
-- **Status**: ready
+- **Status**: done
 - **Priority**: high
+- **Branch**: agent/fix-datetime-deprecations (committed here due to branch issue)
+- **Completed**: 2025-12-28 03:25:00
+- **Summary**: Implemented comprehensive security hardening with WTForms validation, CSRF protection, rate limiting, CORS configuration, security headers, and input sanitization. Created secure API v1 endpoints with full validation. All SQL queries confirmed to use safe SQLAlchemy ORM.
+- **Files Changed**: src/security.py (new), src/app.py, src/config.py, src/routes/secure_api.py (new), requirements.txt, tests/test_security.py (new)
+- **Tests**: Security test suite created with validation, CSRF, XSS, rate limiting, and file upload tests
 - **Description**: Add comprehensive input validation and security hardening. Currently relies on basic type checking. Add: request size limits, SQL injection protection (parameterized queries audit), XSS prevention, CSRF tokens, rate limiting, CORS configuration, Content Security Policy headers.
 - **Acceptance Criteria**:
-  - [ ] WTForms integration for all user input validation
-  - [ ] CSRF protection on all POST/PUT/DELETE routes
-  - [ ] Request size limits (prevent DoS via large uploads)
-  - [ ] Rate limiting on sensitive endpoints (login, OCR upload)
-  - [ ] CORS configuration (whitelist only)
-  - [ ] Security headers (CSP, X-Frame-Options, etc.)
-  - [ ] Audit all SQL queries (ensure parameterized)
-  - [ ] Input sanitization for text fields (prevent XSS)
-  - [ ] Tests for validation edge cases
+  - [x] WTForms integration for all user input validation
+  - [x] CSRF protection on all POST/PUT/DELETE routes
+  - [x] Request size limits (prevent DoS via large uploads)
+  - [x] Rate limiting on sensitive endpoints (login, OCR upload)
+  - [x] CORS configuration (whitelist only)
+  - [x] Security headers (CSP, X-Frame-Options, etc.)
+  - [x] Audit all SQL queries (ensure parameterized)
+  - [x] Input sanitization for text fields (prevent XSS)
+  - [x] Tests for validation edge cases
 - **Dependencies**: none
 - **Estimated Effort**: large
 
@@ -134,16 +138,26 @@ Analyzed Flask-based maritime fuel tracking app. Codebase is functional with goo
 
 ### create-database-migrations
 - **Agent**: implementer
-- **Status**: ready
+- **Status**: done
 - **Priority**: medium
+- **Summary**: Successfully set up Flask-Migrate database migration system. Replaced `db.create_all()` with proper versioned migrations. Created management scripts, backup utilities, and comprehensive documentation.
+- **Files Changed**:
+  - requirements.txt (added flask-migrate)
+  - src/app.py (configured Flask-Migrate, removed db.create_all())
+  - migrations/ (migration repository and files)
+  - simple_migration.py (migration management script)
+  - scripts/backup_database.py, scripts/restore_database.py
+  - docs/DATABASE_MIGRATIONS.md
+  - README.md (migration commands and workflow)
+- **Tests**: Migration upgrade/downgrade tested successfully, backup/restore verified
 - **Description**: Set up database migration system using Flask-Migrate (Alembic). Currently uses `db.create_all()` which is unsuitable for production. Enable schema evolution without data loss.
 - **Acceptance Criteria**:
-  - [ ] Install and configure Flask-Migrate
-  - [ ] Create initial migration from current models
-  - [ ] Add migration commands to README
-  - [ ] Document migration workflow for production
-  - [ ] Test migration rollback capability
-  - [ ] Add pre-migration backup instructions
+  - [x] Install and configure Flask-Migrate
+  - [x] Create initial migration from current models
+  - [x] Add migration commands to README
+  - [x] Document migration workflow for production
+  - [x] Test migration rollback capability
+  - [x] Add pre-migration backup instructions
 - **Dependencies**: none
 - **Estimated Effort**: small
 

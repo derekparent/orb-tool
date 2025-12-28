@@ -122,6 +122,21 @@ body {
   background: rgba(245, 158, 11, 0.1);
 }
 
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: var(--space-md);
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--border-default);
+}
+
+.nav-username {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
 /* Main content */
 .main {
   padding: var(--space-md);

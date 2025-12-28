@@ -3,8 +3,13 @@
 import pytest
 from datetime import datetime, UTC
 import json
+import sys
+from pathlib import Path
 
-from src.models import db, User, UserRole
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from models import db, User, UserRole
 
 
 class TestUserModel:

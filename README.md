@@ -47,9 +47,39 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
+# Database Migration (First time setup)
+python simple_migration.py upgrade
+
 # Run
 flask run
 ```
+
+## Database Migrations
+
+This project uses Flask-Migrate (Alembic) for database schema evolution.
+
+### Migration Commands
+
+```bash
+# Apply all migrations to database
+python simple_migration.py upgrade
+
+# Rollback one migration
+python simple_migration.py downgrade
+
+# Create new migration (after model changes)
+python simple_migration.py create "Description of changes"
+```
+
+### Production Migration Workflow
+
+1. **Backup database**: `cp data/orb.db data/orb.db.backup-$(date +%Y%m%d)`
+2. **Review migration**: Check `migrations/versions/*.py` for SQL changes
+3. **Test migration**: Run on copy of production data first
+4. **Apply migration**: `python simple_migration.py upgrade`
+5. **Verify**: Confirm app starts and data is intact
+
+**Never skip migrations or run them out of order.**
 
 ## Project Structure
 
@@ -57,16 +87,27 @@ flask run
 oil_record_book_tool/
 ├── src/
 │   ├── app.py              # Flask app
-│   ├── models/             # Data models
+│   ├── models.py           # Data models
 │   ├── routes/             # API endpoints
 │   ├── services/           # Business logic
-│   └── templates/          # HTML templates
+│   └── config.py           # Configuration
+├── templates/              # HTML templates
 ├── static/                 # CSS, JS, images
+├── migrations/             # Database migration files
+│   ├── versions/           # Migration scripts
+│   └── env.py              # Migration environment
+├── scripts/                # Utility scripts
+│   ├── backup_database.py  # Database backup
+│   └── restore_database.py # Database restore
 ├── tests/
 ├── data/
-│   └── sounding_tables.json    # Tank conversion tables (17P, 17S)
+│   ├── orb.db              # SQLite database
+│   ├── backups/            # Database backups
+│   └── sounding_tables.json # Tank conversion tables
 ├── docs/
+│   ├── DATABASE_MIGRATIONS.md
 │   └── ORB_App_Planning_Document.md
+├── simple_migration.py     # Migration management
 ├── requirements.txt
 └── README.md
 ```

@@ -18,19 +18,34 @@ from models import (
 )
 
 
+class MockUser:
+    """Mock user for testing that satisfies Flask-Login requirements."""
+    id = 1
+    username = "test_user"
+    role = "chief_engineer"
+    is_active = True
+    is_authenticated = True
+    is_anonymous = False
+
+    def get_id(self):
+        return str(self.id)
+
+    def can_access_route(self, route_type):
+        """Allow all access in tests."""
+        return True
+
+
 @pytest.fixture
 def app():
     """Create Flask app for testing."""
-    # Create a minimal app without security features
-    from flask import Flask
+    from flask import Flask, g
     from config import TestingConfig
-    from flask_login import LoginManager
+    from flask_login import LoginManager, login_user
 
     app = Flask(__name__)
     app.config.from_object(TestingConfig)
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False  # Disable CSRF for testing
-    app.config["LOGIN_DISABLED"] = True  # Disable login requirement
 
     # Initialize database
     db.init_app(app)
@@ -42,47 +57,13 @@ def app():
 
     @login_manager.user_loader
     def load_user(user_id):
-        """Mock user loader for tests."""
-        from models import User
-        # Return a mock user for tests
-        class MockUser:
-            id = 1
-            username = "test_user"
-            role = "chief_engineer"
-            is_active = True
-            is_authenticated = True
-            is_anonymous = False
-
-            def get_id(self):
-                return str(self.id)
-
-            def can_access_route(self, route_type):
-                """Allow all access in tests."""
-                return True
-
+        """Return mock user for any user_id."""
         return MockUser()
 
-    # Mock the current_user for all requests
+    # Properly authenticate mock user for all requests
     @app.before_request
     def mock_login():
-        from flask_login import login_user
-        from flask import g
-        # Create a mock user and log them in
-        class MockUser:
-            id = 1
-            username = "test_user"
-            role = "chief_engineer"
-            is_active = True
-            is_authenticated = True
-            is_anonymous = False
-
-            def get_id(self):
-                return str(self.id)
-
-            def can_access_route(self, route_type):
-                """Allow all access in tests."""
-                return True
-
+        # Set g._login_user directly - Flask-Login checks this first
         g._login_user = MockUser()
 
     # Register API blueprint only

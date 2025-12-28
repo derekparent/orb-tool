@@ -1,12 +1,14 @@
 """API routes for Oil Record Book Tool."""
 
-from datetime import datetime
+from datetime import datetime, UTC
+from functools import wraps
 from flask import Blueprint, current_app, jsonify, request
+from flask_login import login_required, current_user
 
 from models import (
     WeeklySounding, ORBEntry, DailyFuelTicket, ServiceTankConfig,
     StatusEvent, EquipmentStatus, OilLevel, HitchRecord, FuelTankSounding,
-    EQUIPMENT_LIST, db
+    EQUIPMENT_LIST, db, UserRole
 )
 from services.sounding_service import SoundingService
 from services.orb_service import ORBService
@@ -32,10 +34,27 @@ def get_orb_service() -> ORBService:
     return current_app._orb_service
 
 
+def require_role(route_type: str):
+    """Decorator to require specific role for API access."""
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def decorated_function(*args, **kwargs):
+            if not current_user.can_access_route(route_type):
+                return jsonify({
+                    "success": False,
+                    "error": "Access denied. Insufficient privileges."
+                }), 403
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 # --- Tank Info ---
 
 
 @api_bp.route("/tanks", methods=["GET"])
+@require_role("read")
 def get_tanks():
     """Get available tanks and their metadata."""
     service = get_sounding_service()
@@ -92,6 +111,7 @@ def get_latest_sounding():
 
 
 @api_bp.route("/soundings", methods=["POST"])
+@require_role("write")
 def create_sounding():
     """
     Create a new weekly sounding and generate ORB entries.
@@ -203,6 +223,7 @@ def get_orb_entry(entry_id: int):
 
 
 @api_bp.route("/dashboard/stats", methods=["GET"])
+@require_role("read")
 def get_dashboard_stats():
     """Get summary stats for dashboard."""
     latest = WeeklySounding.query.order_by(
@@ -257,6 +278,7 @@ def get_active_service_tank():
 
 
 @api_bp.route("/service-tanks/active", methods=["POST"])
+@require_role("write")
 def set_active_service_tank():
     """
     Set the active service tank pair.
@@ -276,7 +298,7 @@ def set_active_service_tank():
         return jsonify({"error": f"Invalid tank pair: {tank_pair}"}), 400
 
     try:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Deactivate current active tank
         current = ServiceTankConfig.query.filter_by(deactivated_at=None).first()
@@ -323,6 +345,7 @@ def get_latest_fuel_ticket():
 
 
 @api_bp.route("/fuel-tickets", methods=["POST"])
+@require_role("write")
 def create_fuel_ticket():
     """
     Create a new daily fuel ticket.
@@ -440,6 +463,7 @@ def get_latest_status_events():
 
 
 @api_bp.route("/status-events", methods=["POST"])
+@require_role("write")
 def create_status_event():
     """
     Create a new status event.
@@ -531,6 +555,7 @@ def get_equipment_status(equipment_id: str):
 
 
 @api_bp.route("/equipment/<equipment_id>", methods=["POST"])
+@require_role("write")
 def update_equipment_status(equipment_id: str):
     """
     Update equipment status.
@@ -568,7 +593,7 @@ def update_equipment_status(equipment_id: str):
             equipment_id=equipment_id,
             status=data["status"],
             note=data.get("note"),
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(UTC),
             updated_by=data["updated_by"],
         )
         db.session.add(status)
@@ -582,6 +607,7 @@ def update_equipment_status(equipment_id: str):
 
 
 @api_bp.route("/equipment/bulk", methods=["POST"])
+@require_role("write")
 def update_equipment_bulk():
     """
     Bulk update equipment statuses.
@@ -600,7 +626,7 @@ def update_equipment_bulk():
         return jsonify({"error": "updates and updated_by required"}), 400
 
     try:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         results = []
 
         for update in data["updates"]:
@@ -640,6 +666,7 @@ def update_equipment_bulk():
 
 
 @api_bp.route("/dashboard/full", methods=["GET"])
+@require_role("read")
 def get_full_dashboard():
     """Get all dashboard data in one call."""
     # Slop tank soundings
@@ -707,6 +734,7 @@ def get_full_dashboard():
 
 
 @api_bp.route("/hitch/parse-image", methods=["POST"])
+@require_role("admin")
 def parse_hitch_image():
     """
     Parse an uploaded End of Hitch Sounding Form image.
@@ -753,6 +781,7 @@ def get_hitch(hitch_id: int):
 
 
 @api_bp.route("/hitch/<int:hitch_id>", methods=["PUT"])
+@require_role("admin")
 def update_hitch(hitch_id: int):
     """Update an existing hitch record (for end-of-hitch editing)."""
     hitch = HitchRecord.query.get_or_404(hitch_id)
@@ -821,6 +850,7 @@ def update_hitch(hitch_id: int):
 
 
 @api_bp.route("/hitch/start", methods=["POST"])
+@require_role("admin")
 def start_new_hitch():
     """
     Start a new hitch with complete End of Hitch Sounding Form data.
@@ -855,7 +885,7 @@ def start_new_hitch():
             # End any active hitch
             active_hitch = HitchRecord.query.filter_by(end_date=None, is_start=True).first()
             if active_hitch:
-                active_hitch.end_date = datetime.utcnow()
+                active_hitch.end_date = datetime.now(UTC)
 
             # Clear operational tables
             FuelTankSounding.query.delete()
@@ -989,6 +1019,7 @@ def start_new_hitch():
 
 
 @api_bp.route("/hitch/end", methods=["POST"])
+@require_role("admin")
 def create_end_of_hitch():
     """
     Create end-of-hitch record (for printing/handover).
@@ -1080,6 +1111,7 @@ def create_end_of_hitch():
 
 
 @api_bp.route("/hitch/reset", methods=["POST"])
+@require_role("admin")
 def reset_all_data():
     """
     Emergency reset - clears ALL data without creating new hitch.

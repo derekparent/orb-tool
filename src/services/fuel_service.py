@@ -1,6 +1,6 @@
 """Fuel consumption tracking and calculation service."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import TypedDict
 
 
@@ -163,7 +163,8 @@ class FuelService:
             }
 
         # Get tickets from last 7 days
-        now = datetime.utcnow()
+        # DB stores naive UTC datetimes, so compare as naive
+        now = datetime.now(UTC).replace(tzinfo=None)
         week_ago = now - timedelta(days=7)
         weekly_tickets = [t for t in tickets if t.ticket_date >= week_ago]
 
