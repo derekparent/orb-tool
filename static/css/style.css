@@ -125,7 +125,7 @@ body {
 .nav-user {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-md);
   margin-left: var(--space-md);
   padding-left: var(--space-md);
   border-left: 1px solid var(--border-default);

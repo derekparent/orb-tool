@@ -1,6 +1,6 @@
 """Secured API routes with input validation and rate limiting."""
 
-from datetime import datetime
+from datetime import datetime, UTC
 from functools import wraps
 from typing import Dict, Any, Union
 
@@ -287,7 +287,7 @@ def set_active_service_tank():
     data = request.validated_data
 
     try:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Deactivate current active tank
         current = ServiceTankConfig.query.filter_by(deactivated_at=None).first()
@@ -389,7 +389,7 @@ def update_equipment_status(equipment_id: str):
             equipment_id=equipment_id,
             status=data["status"],
             note=data.get("note"),
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(UTC),
             updated_by=data["updated_by"],
         )
         db.session.add(status)
@@ -432,7 +432,7 @@ def start_new_hitch():
             # End any active hitch
             active_hitch = HitchRecord.query.filter_by(end_date=None, is_start=True).first()
             if active_hitch:
-                active_hitch.end_date = datetime.utcnow()
+                active_hitch.end_date = datetime.now(UTC)
 
             # Clear operational tables
             FuelTankSounding.query.delete()

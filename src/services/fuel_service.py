@@ -163,7 +163,8 @@ class FuelService:
             }
 
         # Get tickets from last 7 days
-        now = datetime.now(UTC)
+        # DB stores naive UTC datetimes, so compare as naive
+        now = datetime.now(UTC).replace(tzinfo=None)
         week_ago = now - timedelta(days=7)
         weekly_tickets = [t for t in tickets if t.ticket_date >= week_ago]
 

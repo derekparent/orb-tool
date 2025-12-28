@@ -102,8 +102,9 @@ class TestFuelService:
 
     def test_get_weekly_summary_with_recent(self):
         """Test weekly summary with recent tickets."""
-        now = datetime.now(UTC)
-        
+        # Use naive datetime to match DB storage
+        now = datetime.now(UTC).replace(tzinfo=None)
+
         tickets = []
         for i in range(5):
             ticket = MagicMock()
@@ -119,13 +120,14 @@ class TestFuelService:
 
     def test_get_weekly_summary_excludes_old(self):
         """Test weekly summary excludes tickets older than 7 days."""
-        now = datetime.now(UTC)
-        
+        # Use naive datetime to match DB storage
+        now = datetime.now(UTC).replace(tzinfo=None)
+
         # Recent ticket
         recent = MagicMock()
         recent.consumption_gallons = 100.0
         recent.ticket_date = now - timedelta(days=2)
-        
+
         # Old ticket (8 days ago)
         old = MagicMock()
         old.consumption_gallons = 500.0

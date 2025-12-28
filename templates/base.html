@@ -28,9 +28,9 @@
                     <a href="/new-hitch" class="nav-link {% if request.path == '/new-hitch' %}active{% endif %}">New Hitch</a>
                 {% endif %}
                 <div class="nav-user">
-                    <span class="nav-username">{{ current_user.username }}</span>
-                    <a href="/auth/profile" class="nav-link">Profile</a>
-                    <a href="/auth/logout" class="nav-link">Logout</a>
+                    <span class="nav-username">{{ current_user.username | capitalize }}</span>
+                    <a href="/auth/profile" class="nav-link nav-user-link">Profile</a>
+                    <a href="/auth/logout" class="nav-link nav-user-link">Logout</a>
                 </div>
             {% else %}
                 <a href="/auth/login" class="nav-link">Login</a>

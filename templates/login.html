@@ -31,13 +31,30 @@
     color: var(--text-primary);
 }
 
-.form-input {
+.form-input,
+input[type="text"].form-input,
+input[type="password"].form-input {
     padding: 0.75rem;
-    border: 1px solid var(--border);
+    border: 1px solid #3a3a4a !important;
     border-radius: 4px;
     font-size: 1rem;
-    background: var(--input-bg);
-    color: var(--text-primary);
+    background: #0d0d14 !important;
+    color: #fff !important;
+    width: 100%;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+/* Override browser autofill styles */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #0d0d14 inset !important;
+    -webkit-text-fill-color: #fff !important;
+    border: 1px solid #3a3a4a !important;
+    transition: background-color 5000s ease-in-out 0s;
 }
 
 .form-input:focus {
@@ -59,22 +76,24 @@
 
 .login-button {
     padding: 0.75rem 1.5rem;
-    background: var(--primary);
-    color: white;
+    background: #f59e0b;
+    color: #000;
     border: none;
     border-radius: 4px;
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s;
+    width: 100%;
+    margin-top: 1rem;
 }
 
 .login-button:hover {
-    background: var(--primary-dark);
+    background: #d97706;
 }
 
 .login-button:disabled {
-    background: var(--muted);
+    background: #666;
     cursor: not-allowed;
 }
 
@@ -156,7 +175,7 @@
     {% endwith %}
 
     <form id="loginForm" class="login-form" method="POST">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="username" class="form-label">Username</label>
             <input
