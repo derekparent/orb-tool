@@ -1,12 +1,14 @@
 """API routes for Oil Record Book Tool."""
 
 from datetime import datetime, UTC
+from functools import wraps
 from flask import Blueprint, current_app, jsonify, request
+from flask_login import login_required, current_user
 
 from models import (
     WeeklySounding, ORBEntry, DailyFuelTicket, ServiceTankConfig,
     StatusEvent, EquipmentStatus, OilLevel, HitchRecord, FuelTankSounding,
-    EQUIPMENT_LIST, db
+    EQUIPMENT_LIST, db, UserRole
 )
 from services.sounding_service import SoundingService
 from services.orb_service import ORBService
@@ -30,6 +32,22 @@ def get_orb_service() -> ORBService:
     if not hasattr(current_app, "_orb_service"):
         current_app._orb_service = ORBService(get_sounding_service())
     return current_app._orb_service
+
+
+def require_role(route_type: str):
+    """Decorator to require specific role for API access."""
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def decorated_function(*args, **kwargs):
+            if not current_user.can_access_route(route_type):
+                return jsonify({
+                    "success": False,
+                    "error": "Access denied. Insufficient privileges."
+                }), 403
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 
 # --- Tank Info ---
