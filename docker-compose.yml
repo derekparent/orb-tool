@@ -1,0 +1,70 @@
+# Oil Record Book Tool - Docker Compose Configuration
+# For local production testing and development
+
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: orb-tool
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
+      - DATABASE_URL=sqlite:////app/data/orb.db
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8000}
+      - SESSION_SECURE=${SESSION_SECURE:-true}
+      - REDIS_URL=${REDIS_URL:-memory://}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-}
+    volumes:
+      # Persist SQLite database
+      - orb-data:/app/data
+      # Optional: Mount Google Cloud credentials
+      - ${GOOGLE_CREDENTIALS_PATH:-./credentials}:/app/credentials:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "scripts/healthcheck.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - orb-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional Redis for rate limiting (production)
+  redis:
+    image: redis:7-alpine
+    container_name: orb-redis
+    profiles:
+      - with-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - orb-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  orb-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  orb-network:
+    driver: bridge

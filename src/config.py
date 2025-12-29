@@ -9,12 +9,16 @@ class Config:
 
     BASE_DIR = Path(__file__).parent.parent
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-key-change-in-production")
+    APP_VERSION = os.environ.get("APP_VERSION", "1.0.0")
 
     # Database
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL", f"sqlite:///{BASE_DIR / 'data' / 'orb.db'}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,  # Verify connections before use
+    }
 
     # Data files
     SOUNDING_TABLES_PATH = BASE_DIR / "data" / "sounding_tables.json"
@@ -57,6 +61,18 @@ class ProductionConfig(Config):
     DEBUG = False
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
     LOG_JSON_FORMAT = True
+    SESSION_COOKIE_SECURE = True  # Enforce secure cookies in production
+
+    @classmethod
+    def init_app(cls, app):
+        """Validate production configuration."""
+        key = os.environ.get("SECRET_KEY")
+        if not key or key == "dev-key-change-in-production":
+            import warnings
+            warnings.warn(
+                "SECRET_KEY must be set to a secure value in production",
+                RuntimeWarning
+            )
 
 
 class TestingConfig(Config):
@@ -66,6 +82,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     LOG_LEVEL = "WARNING"
     LOG_JSON_FORMAT = False
+    WTF_CSRF_ENABLED = False  # Disable CSRF for testing
 
 
 config = {
@@ -74,4 +91,3 @@ config = {
     "testing": TestingConfig,
     "default": DevelopmentConfig,
 }
-

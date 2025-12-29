@@ -141,22 +141,24 @@ def create_app(config_name: str | None = None) -> Flask:
         db.session.rollback()
         return jsonify({"error": "Internal server error"}), 500
 
-    # Health check endpoint (no auth required)
+    # Health check endpoint (no auth required, for container orchestration)
     @app.route("/health")
     def health_check():
-        """Health check endpoint for monitoring."""
+        """Health check endpoint for monitoring and container orchestration."""
         try:
             # Simple DB check
             db.session.execute(db.text("SELECT 1"))
             return jsonify({
                 "status": "healthy",
                 "database": "connected",
+                "version": app.config.get("APP_VERSION", "1.0.0"),
             }), 200
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return jsonify({
                 "status": "unhealthy",
                 "database": "disconnected",
+                "version": app.config.get("APP_VERSION", "1.0.0"),
                 "error": str(e),
             }), 503
 
@@ -224,4 +226,3 @@ def create_app(config_name: str | None = None) -> Flask:
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True, host="0.0.0.0", port=5001)
-
