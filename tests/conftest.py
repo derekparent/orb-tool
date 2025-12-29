@@ -140,3 +140,93 @@ def logged_in_viewer(client, viewer_user):
         sess['_user_id'] = str(viewer_user.id)
         sess['_fresh'] = True
     return viewer_user
+
+
+# ============================================================================
+# Integration Test Fixtures
+# ============================================================================
+
+@pytest.fixture
+def integration_app():
+    """Create Flask app configured for integration testing.
+    
+    This fixture provides a fully configured app with all blueprints
+    and services properly initialized.
+    """
+    db_fd, db_path = tempfile.mkstemp()
+    
+    test_config = {
+        'TESTING': True,
+        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{db_path}',
+        'SQLALCHEMY_TRACK_MODIFICATIONS': False,
+        'SECRET_KEY': 'integration-test-secret-key',
+        'WTF_CSRF_ENABLED': False,
+        'LOGIN_DISABLED': False,
+        'CORS_ORIGINS': ['http://localhost:3000'],
+        'SOUNDING_TABLES_PATH': str(Path(__file__).parent.parent / "data" / "sounding_tables.json")
+    }
+    
+    app = create_app('testing')
+    app.config.update(test_config)
+    
+    with app.app_context():
+        db.create_all()
+        yield app
+        db.session.remove()
+        db.drop_all()
+    
+    os.close(db_fd)
+    os.unlink(db_path)
+
+
+@pytest.fixture
+def integration_client(integration_app):
+    """Create test client for integration tests."""
+    return integration_app.test_client()
+
+
+@pytest.fixture
+def all_users(integration_app):
+    """Create all test user types for RBAC testing.
+    
+    Returns:
+        dict: {'chief': {...}, 'engineer': {...}, 'viewer': {...}}
+    """
+    with integration_app.app_context():
+        users = {}
+        
+        chief = User(
+            username='chief_integration',
+            email='chief@integration.test',
+            full_name='Chief Engineer Integration',
+            role=UserRole.CHIEF_ENGINEER,
+        )
+        chief.set_password('chief123')
+        db.session.add(chief)
+        
+        engineer = User(
+            username='engineer_integration',
+            email='engineer@integration.test',
+            full_name='Engineer Integration',
+            role=UserRole.ENGINEER,
+        )
+        engineer.set_password('engineer123')
+        db.session.add(engineer)
+        
+        viewer = User(
+            username='viewer_integration',
+            email='viewer@integration.test',
+            full_name='Viewer Integration',
+            role=UserRole.VIEWER,
+        )
+        viewer.set_password('viewer123')
+        db.session.add(viewer)
+        
+        db.session.commit()
+        
+        # Store IDs for later lookup
+        users['chief'] = {'id': chief.id, 'username': 'chief_integration', 'password': 'chief123'}
+        users['engineer'] = {'id': engineer.id, 'username': 'engineer_integration', 'password': 'engineer123'}
+        users['viewer'] = {'id': viewer.id, 'username': 'viewer_integration', 'password': 'viewer123'}
+        
+        return users
