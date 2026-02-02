@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Manuals Stats - Engine Room{% endblock %}
+
+{% block head %}
+<style>
+.stats-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: var(--space-md);
+}
+
+.stats-container h1 {
+    font-size: 1.5rem;
+    color: var(--accent-primary);
+    margin-bottom: var(--space-lg);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+    font-family: var(--font-mono);
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: var(--space-sm);
+}
+
+.stats-unavailable {
+    text-align: center;
+    padding: var(--space-xl);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+}
+
+.stats-unavailable h2 {
+    color: var(--accent-primary);
+    margin-bottom: var(--space-md);
+}
+
+.stats-unavailable p {
+    color: var(--text-secondary);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-container">
+    <h1>Manuals Index Statistics</h1>
+
+    {% if stats.available %}
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total_files }}</div>
+            <div class="stat-label">PDF Files</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-value">{{ "{:,}".format(stats.total_pages) }}</div>
+            <div class="stat-label">Indexed Pages</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total_cards }}</div>
+            <div class="stat-label">Troubleshooting Cards</div>
+        </div>
+    </div>
+
+    <p style="color: var(--text-muted); text-align: center; font-size: 0.875rem;">
+        Database: data/engine_search.db
+    </p>
+
+    {% else %}
+    <div class="stats-unavailable">
+        <h2>Database Not Available</h2>
+        <p>The manuals database has not been created yet.</p>
+        <p>Run the indexer from the engine_tool project to create it.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

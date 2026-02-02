@@ -1,0 +1,476 @@
+{% extends "base.html" %}
+
+{% block title %}Search Manuals - Engine Room{% endblock %}
+
+{% block head %}
+<style>
+/* Manuals Search Specific Styles */
+.search-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: var(--space-md);
+}
+
+.search-container h1 {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-lg);
+    color: var(--accent-primary);
+}
+
+.search-form {
+    margin-bottom: var(--space-xl);
+}
+
+.search-box {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+}
+
+.search-box input[type="text"] {
+    flex: 1;
+    padding: var(--space-md);
+    font-size: 1rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+}
+
+.search-box input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.search-box button {
+    padding: var(--space-md) var(--space-lg);
+    font-size: 1rem;
+    font-weight: 600;
+    background: var(--accent-primary);
+    color: var(--bg-dark);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.search-box button:hover {
+    background: var(--accent-primary-dim);
+}
+
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    align-items: center;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.filter-group label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.filter-group select {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.filter-group.checkbox label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+}
+
+.filter-group.checkbox input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--accent-primary);
+}
+
+.results-summary {
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-lg);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.results-summary strong {
+    color: var(--text-primary);
+}
+
+.boost-note {
+    color: var(--accent-primary);
+    margin-left: var(--space-sm);
+}
+
+.results-section {
+    margin-bottom: var(--space-xl);
+}
+
+.results-section h2 {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border-default);
+}
+
+.result {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+    transition: border-color 0.2s;
+}
+
+.result:hover {
+    border-color: var(--border-emphasis);
+}
+
+.result-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.badge {
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.05em;
+}
+
+.badge-card {
+    background: var(--accent-info);
+    color: white;
+}
+
+.badge-primary {
+    background: var(--accent-success);
+    color: white;
+}
+
+.badge-secondary {
+    background: var(--text-muted);
+    color: var(--text-primary);
+}
+
+.badge-mention {
+    background: var(--accent-danger);
+    color: white;
+}
+
+.badge-OM, .badge-troubleshooting, .badge-schematic, .badge-service {
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+}
+
+.result-title {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.result-title:hover {
+    color: var(--accent-primary);
+}
+
+.result-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+}
+
+.result-meta .equipment {
+    color: var(--accent-primary);
+    font-weight: 500;
+}
+
+.result-snippet {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.result-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-default);
+}
+
+.btn-open {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-open:hover {
+    background: var(--border-default);
+}
+
+.filepath {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.no-results, .error {
+    padding: var(--space-lg);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    text-align: center;
+}
+
+.error {
+    border: 1px solid var(--accent-danger);
+    color: var(--accent-danger);
+}
+
+.no-results .hint {
+    margin-top: var(--space-md);
+    color: var(--text-secondary);
+}
+
+.no-results ul {
+    list-style: none;
+    margin-top: var(--space-sm);
+}
+
+.no-results li {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    padding: var(--space-xs) 0;
+}
+
+.db-unavailable {
+    text-align: center;
+    padding: var(--space-xl);
+}
+
+.db-unavailable h2 {
+    color: var(--accent-primary);
+    margin-bottom: var(--space-md);
+}
+
+.db-unavailable p {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+}
+
+.db-unavailable code {
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+    .search-box {
+        flex-direction: column;
+    }
+
+    .filters {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .result-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="search-container">
+    <h1>Search CAT Engine Documentation</h1>
+
+    {% if not db_available %}
+    <div class="db-unavailable">
+        <h2>Manuals Database Not Found</h2>
+        <p>Place <code>engine_search.db</code> in the <code>data/</code> folder to enable search.</p>
+        <p>Run the indexer from engine_tool to create the database.</p>
+    </div>
+    {% else %}
+
+    <form method="get" action="{{ url_for('manuals.search') }}" class="search-form">
+        <div class="search-box">
+            <input type="text" name="q" value="{{ query }}"
+                   placeholder="Search manuals, troubleshooting guides, schematics..."
+                   autofocus>
+            <button type="submit">Search</button>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label for="equipment">Equipment:</label>
+                <select name="equipment" id="equipment">
+                    {% for opt in equipment_options %}
+                    <option value="{{ opt }}" {% if equipment == opt %}selected{% endif %}>{{ opt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="doc_type">Doc Type:</label>
+                <select name="doc_type" id="doc_type">
+                    {% for opt in doc_type_options %}
+                    <option value="{{ opt }}" {% if doc_type == opt %}selected{% endif %}>{{ opt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group checkbox">
+                <label>
+                    <input type="checkbox" name="boost" value="1" {% if boost %}checked{% endif %}>
+                    Boost primary sources
+                </label>
+            </div>
+        </div>
+    </form>
+
+    {% if error %}
+    <div class="error">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    {% if query %}
+    <div class="results-summary">
+        Found {{ card_results|length + results|length }} results for "<strong>{{ query }}</strong>"
+        {% if boost %}<span class="boost-note">(authority boost enabled)</span>{% endif %}
+    </div>
+    {% endif %}
+
+    {# Card Results #}
+    {% if card_results %}
+    <section class="results-section">
+        <h2>Troubleshooting Cards ({{ card_results|length }})</h2>
+
+        {% for card in card_results %}
+        <article class="result card-result">
+            <div class="result-header">
+                <span class="badge badge-card">CARD</span>
+                <a href="{{ url_for('manuals.card_detail', card_id=card.id) }}" class="result-title">
+                    {{ card.title }}
+                </a>
+            </div>
+            <div class="result-meta">
+                <span class="equipment">{{ card.equipment }}</span>
+                {% if card.subsystem %}
+                <span class="subsystem">{{ card.subsystem }}</span>
+                {% endif %}
+                <span class="sources">{{ card.sources|length }} sources linked</span>
+            </div>
+            <div class="result-snippet">
+                {{ card.steps.split('\n')[0][:100] }}{% if card.steps|length > 100 %}...{% endif %}
+            </div>
+        </article>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    {# PDF Results #}
+    {% if results %}
+    <section class="results-section">
+        <h2>PDF Pages ({{ results|length }})</h2>
+
+        {% for r in results %}
+        <article class="result pdf-result">
+            <div class="result-header">
+                {% if r.authority_label %}
+                <span class="badge badge-{{ r.authority }}">{{ r.authority_label }}</span>
+                {% endif %}
+                <span class="badge badge-{{ r.doc_type|replace('&', '')|replace(' ', '-') }}">{{ r.doc_type }}</span>
+                <a href="#" class="result-title"
+                   onclick="openPdf('{{ r.filepath }}', {{ r.page_num }}); return false;">
+                    {{ r.filename }} - Page {{ r.page_num }}
+                </a>
+            </div>
+            <div class="result-meta">
+                <span class="equipment">{{ r.equipment }}</span>
+                <span class="score">Score: {{ "%.2f"|format(r.score) }}</span>
+            </div>
+            <div class="result-snippet">{{ r.snippet }}</div>
+            <div class="result-actions">
+                <button onclick="openPdf('{{ r.filepath }}', {{ r.page_num }})" class="btn-open">
+                    Open PDF
+                </button>
+                <span class="filepath" title="{{ r.filepath }}">{{ r.filepath|basename }}</span>
+            </div>
+        </article>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if query and not results and not card_results and not error %}
+    <div class="no-results">
+        <p>No results found for "<strong>{{ query }}</strong>"</p>
+        <p class="hint">Tips:</p>
+        <ul>
+            <li>Try different keywords</li>
+            <li>Use quotes for exact phrases: "fuel pressure"</li>
+            <li>Use prefix matching: over* (matches overspeed, overheating)</li>
+            <li>Remove filters to search all documents</li>
+        </ul>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openPdf(filepath, page) {
+    fetch('{{ url_for("manuals.open_pdf") }}?file=' + encodeURIComponent(filepath) + '&page=' + page)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                window.showToast && showToast(data.message, 'success');
+            } else {
+                window.showToast ? showToast(data.message, 'error') : alert('Error: ' + data.message);
+            }
+        })
+        .catch(err => {
+            window.showToast ? showToast('Failed to open PDF', 'error') : alert('Failed to open PDF: ' + err);
+        });
+}
+</script>
+{% endblock %}

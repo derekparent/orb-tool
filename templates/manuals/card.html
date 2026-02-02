@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}{% if card %}{{ card.title }}{% else %}Card Not Found{% endif %} - Engine Room{% endblock %}
+
+{% block head %}
+<style>
+.card-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: var(--space-md);
+}
+
+.card-header {
+    margin-bottom: var(--space-lg);
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    margin-bottom: var(--space-md);
+}
+
+.back-link:hover {
+    color: var(--text-primary);
+}
+
+.card-title {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+}
+
+.card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.card-meta .equipment {
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.card-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.card-section h2 {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--border-default);
+}
+
+.steps-content {
+    white-space: pre-wrap;
+    font-family: var(--font-display);
+    line-height: 1.8;
+    color: var(--text-primary);
+}
+
+.source-list {
+    list-style: none;
+}
+
+.source-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.source-item:last-child {
+    margin-bottom: 0;
+}
+
+.source-number {
+    font-weight: 600;
+    color: var(--accent-primary);
+    min-width: 1.5rem;
+}
+
+.source-info {
+    flex: 1;
+}
+
+.source-filename {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.source-page {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.source-note {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.btn-open-source {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.8rem;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.btn-open-source:hover {
+    background: var(--border-default);
+}
+
+.no-sources {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.error-container {
+    text-align: center;
+    padding: var(--space-xl);
+}
+
+.error-container h1 {
+    color: var(--accent-danger);
+    margin-bottom: var(--space-md);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card-container">
+    {% if card %}
+    <div class="card-header">
+        <a href="{{ url_for('manuals.search') }}" class="back-link">
+            &larr; Back to Search
+        </a>
+        <h1 class="card-title">{{ card.title }}</h1>
+        <div class="card-meta">
+            <span class="equipment">{{ card.equipment }}</span>
+            {% if card.subsystem %}
+            <span class="subsystem">{{ card.subsystem }}</span>
+            {% endif %}
+            <span>Created: {{ card.created_at[:10] }}</span>
+            <span>Updated: {{ card.updated_at[:10] }}</span>
+        </div>
+    </div>
+
+    <section class="card-section">
+        <h2>Troubleshooting Steps</h2>
+        <div class="steps-content">{{ card.steps }}</div>
+    </section>
+
+    <section class="card-section">
+        <h2>Linked Sources ({{ card.sources|length }})</h2>
+        {% if card.sources %}
+        <ul class="source-list">
+            {% for src in card.sources %}
+            <li class="source-item">
+                <span class="source-number">[{{ loop.index }}]</span>
+                <div class="source-info">
+                    <div class="source-filename">{{ src.filepath|basename }}</div>
+                    <div class="source-page">Page {{ src.page_num }}</div>
+                    {% if src.note %}
+                    <div class="source-note">{{ src.note }}</div>
+                    {% endif %}
+                </div>
+                <button class="btn-open-source" onclick="openPdf('{{ src.filepath }}', {{ src.page_num }})">
+                    Open
+                </button>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="no-sources">No sources linked to this card yet.</p>
+        {% endif %}
+    </section>
+
+    {% else %}
+    <div class="error-container">
+        <h1>Card Not Found</h1>
+        <p>{{ error or 'The requested card does not exist.' }}</p>
+        <a href="{{ url_for('manuals.search') }}" class="back-link">
+            &larr; Back to Search
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openPdf(filepath, page) {
+    fetch('{{ url_for("manuals.open_pdf") }}?file=' + encodeURIComponent(filepath) + '&page=' + page)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                window.showToast && showToast(data.message, 'success');
+            } else {
+                window.showToast ? showToast(data.message, 'error') : alert('Error: ' + data.message);
+            }
+        })
+        .catch(err => {
+            window.showToast ? showToast('Failed to open PDF', 'error') : alert('Failed to open PDF: ' + err);
+        });
+}
+</script>
+{% endblock %}

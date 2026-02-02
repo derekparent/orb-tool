@@ -24,6 +24,7 @@
                 <a href="/fuel" class="nav-link {% if request.path == '/fuel' %}active{% endif %}">Fuel</a>
                 <a href="/soundings" class="nav-link {% if request.path == '/soundings' %}active{% endif %}">Soundings</a>
                 <a href="/history" class="nav-link {% if request.path == '/history' %}active{% endif %}">History</a>
+                <a href="/manuals" class="nav-link {% if request.path.startswith('/manuals') %}active{% endif %}">Manuals</a>
                 {% if current_user.can_access_route('admin') %}
                     <a href="/new-hitch" class="nav-link {% if request.path == '/new-hitch' %}active{% endif %}">New Hitch</a>
                 {% endif %}

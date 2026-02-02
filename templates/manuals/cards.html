@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Troubleshooting Cards - Engine Room{% endblock %}
+
+{% block head %}
+<style>
+.cards-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: var(--space-md);
+}
+
+.cards-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.cards-header h1 {
+    font-size: 1.5rem;
+    color: var(--accent-primary);
+}
+
+.filter-form {
+    display: flex;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.filter-form select {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.cards-count {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: var(--space-md);
+}
+
+.cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.card-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    transition: border-color 0.2s;
+}
+
+.card-item:hover {
+    border-color: var(--border-emphasis);
+}
+
+.card-item-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+
+.card-item-title {
+    font-weight: 500;
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.card-item-title:hover {
+    color: var(--accent-primary);
+}
+
+.card-item-id {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.card-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+}
+
+.card-item-meta .equipment {
+    color: var(--accent-primary);
+    font-weight: 500;
+}
+
+.card-item-preview {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.no-cards {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-secondary);
+}
+
+.no-cards p {
+    margin-bottom: var(--space-md);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cards-container">
+    <div class="cards-header">
+        <h1>Troubleshooting Cards</h1>
+
+        <form class="filter-form" method="get" action="{{ url_for('manuals.cards_list') }}">
+            <select name="equipment" onchange="this.form.submit()">
+                {% for opt in equipment_options %}
+                <option value="{% if opt == 'All' %}{% else %}{{ opt }}{% endif %}"
+                        {% if equipment == opt %}selected{% endif %}>
+                    Equipment: {{ opt }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="subsystem" onchange="this.form.submit()">
+                {% for opt in subsystem_options %}
+                <option value="{% if opt == 'All' %}{% else %}{{ opt }}{% endif %}"
+                        {% if subsystem == opt %}selected{% endif %}>
+                    Subsystem: {{ opt }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    {% if cards %}
+    <p class="cards-count">{{ cards|length }} card{% if cards|length != 1 %}s{% endif %} found</p>
+
+    <div class="cards-list">
+        {% for card in cards %}
+        <article class="card-item">
+            <div class="card-item-header">
+                <a href="{{ url_for('manuals.card_detail', card_id=card.id) }}" class="card-item-title">
+                    {{ card.title }}
+                </a>
+                <span class="card-item-id">{{ card.id }}</span>
+            </div>
+            <div class="card-item-meta">
+                <span class="equipment">{{ card.equipment }}</span>
+                {% if card.subsystem %}
+                <span class="subsystem">{{ card.subsystem }}</span>
+                {% endif %}
+                <span>{{ card.sources|length }} sources</span>
+                <span>Updated: {{ card.updated_at[:10] }}</span>
+            </div>
+            <div class="card-item-preview">
+                {{ card.steps.split('\n')[0][:80] }}{% if card.steps|length > 80 %}...{% endif %}
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="no-cards">
+        <p>No troubleshooting cards found.</p>
+        <p>Cards are created using the CLI in the engine_tool project.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
