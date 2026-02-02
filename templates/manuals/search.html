@@ -151,13 +151,20 @@
 
 .tag-badge {
     display: inline-block;
-    padding: 2px 6px;
-    font-size: 0.65rem;
+    padding: 2px 8px;
+    font-size: 0.7rem;
     background: var(--bg-elevated);
     color: var(--text-secondary);
     border-radius: var(--radius-sm);
     margin-right: 4px;
     margin-bottom: 4px;
+    text-decoration: none;
+    transition: background 0.2s, color 0.2s;
+}
+
+a.tag-badge:hover {
+    background: var(--accent-primary);
+    color: var(--bg-dark);
 }
 
 .active-filters {
@@ -258,19 +265,68 @@
     color: white;
 }
 
-.badge-OM, .badge-troubleshooting, .badge-schematic, .badge-service {
+/* Doc type badges with meaningful colors */
+.badge-testing, .badge-disassembly {
+    background: var(--accent-success);
+    color: white;
+}
+
+.badge-troubleshooting {
+    background: #d97706;
+    color: white;
+}
+
+.badge-OM, .badge-systems, .badge-service {
     background: var(--bg-elevated);
     color: var(--text-secondary);
+}
+
+.badge-schematic, .badge-specifications {
+    background: var(--accent-info);
+    color: white;
+}
+
+.badge-special-instructions {
+    background: #7c3aed;
+    color: white;
 }
 
 .result-title {
     color: var(--text-primary);
     text-decoration: none;
     font-weight: 500;
+    font-size: 0.95rem;
 }
 
 .result-title:hover {
     color: var(--accent-primary);
+}
+
+.equipment-inline {
+    color: var(--accent-primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-left: auto;
+}
+
+.result-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.page-num {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.result-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: var(--space-sm);
 }
 
 .result-meta {
@@ -293,6 +349,14 @@
     line-height: 1.6;
 }
 
+.result-snippet mark {
+    background: rgba(234, 179, 8, 0.3);
+    color: var(--text-primary);
+    padding: 1px 3px;
+    border-radius: 2px;
+    font-weight: 500;
+}
+
 .result-actions {
     display: flex;
     align-items: center;
@@ -303,19 +367,24 @@
 }
 
 .btn-open {
-    padding: var(--space-sm) var(--space-md);
-    font-size: 0.8rem;
-    font-weight: 500;
-    background: var(--bg-elevated);
-    color: var(--text-primary);
-    border: 1px solid var(--border-default);
+    padding: var(--space-sm) var(--space-lg);
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: var(--accent-primary);
+    color: var(--bg-dark);
+    border: none;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.1s;
 }
 
 .btn-open:hover {
-    background: var(--border-default);
+    background: var(--accent-primary-dim);
+    transform: translateY(-1px);
+}
+
+.btn-open:active {
+    transform: translateY(0);
 }
 
 .filepath {
@@ -521,24 +590,37 @@
                 {% if r.authority_label %}
                 <span class="badge badge-{{ r.authority }}">{{ r.authority_label }}</span>
                 {% endif %}
-                <span class="badge badge-{{ r.doc_type|replace('&', '')|replace(' ', '-') }}">{{ r.doc_type }}</span>
+                {# Doc type badge with user-friendly label #}
+                {% set doc_label = {
+                    'testing': 'Procedures',
+                    'disassembly': 'Step-by-Step',
+                    'troubleshooting': 'Problem Solving',
+                    'O&M': 'Overview',
+                    'schematic': 'Diagram',
+                    'specifications': 'Specs',
+                    'systems': 'Systems',
+                    'service': 'Service',
+                    'special-instructions': 'Special'
+                }.get(r.doc_type, r.doc_type|upper) %}
+                <span class="badge badge-{{ r.doc_type|replace('&', '')|replace(' ', '-') }}">{{ doc_label }}</span>
+                <span class="equipment-inline">{{ r.equipment }}</span>
+            </div>
+            <div class="result-title-row">
                 <a href="#" class="result-title"
                    onclick="openPdf('{{ r.filepath }}', {{ r.page_num }}); return false;">
-                    {{ r.filename }} - Page {{ r.page_num }}
+                    {{ r.filename|replace('_manuals-service-modules_', ' - ')|replace('.pdf', '')|replace('-', ' ')|title }}
                 </a>
+                <span class="page-num">Page {{ r.page_num }}</span>
             </div>
-            <div class="result-meta">
-                <span class="equipment">{{ r.equipment }}</span>
-                <span class="score">Score: {{ "%.2f"|format(r.score) }}</span>
-                {% if r.tags %}
-                <span class="result-tags">
-                    {% for tag in r.tags[:3] %}
-                    <span class="tag-badge">{{ tag }}</span>
-                    {% endfor %}
-                </span>
-                {% endif %}
+            {% if r.tags %}
+            <div class="result-tags">
+                {% for tag in r.tags[:3] %}
+                <a href="?q={{ query }}&system={{ tag }}&equipment={{ equipment or '' }}&doc_type={{ doc_type or '' }}&boost={{ 'on' if boost else '' }}" 
+                   class="tag-badge">{{ tag }}</a>
+                {% endfor %}
             </div>
-            <div class="result-snippet">{{ r.snippet }}</div>
+            {% endif %}
+            <div class="result-snippet">{{ r.snippet|safe }}</div>
             <div class="result-actions">
                 <button onclick="openPdf('{{ r.filepath }}', {{ r.page_num }})" class="btn-open">
                     Open PDF

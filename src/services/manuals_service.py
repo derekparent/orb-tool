@@ -6,6 +6,7 @@ Uses a separate database from the main ORB database.
 """
 
 import json
+import re
 import sqlite3
 import subprocess
 import sys
@@ -13,6 +14,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from html import escape
 
 # Database file (separate from main ORB database)
 MANUALS_DB_FILE = "engine_search.db"
@@ -299,17 +301,19 @@ def get_document_tags(filename: str) -> list[str]:
 # =============================================================================
 
 def format_snippet(text: str, query: str, max_length: int = 200) -> str:
-    """Format text snippet for display, showing context around match."""
+    """Format text snippet for display, showing context around match with highlighted terms."""
+    # Normalize whitespace
     text = " ".join(text.split())
 
     query_lower = query.lower().strip('"')
     text_lower = text.lower()
 
-    query_words = query_lower.split()
+    # Get query words, excluding boolean operators
+    query_words = [w for w in query_lower.split() if w.upper() not in ("AND", "OR", "NOT")]
+    
+    # Find best position (earliest match)
     best_pos = len(text)
     for word in query_words:
-        if word.upper() in ("AND", "OR", "NOT"):
-            continue
         pos = text_lower.find(word.rstrip("*"))
         if pos != -1 and pos < best_pos:
             best_pos = pos
@@ -317,6 +321,7 @@ def format_snippet(text: str, query: str, max_length: int = 200) -> str:
     if best_pos == len(text):
         best_pos = 0
 
+    # Extract snippet with context
     start = max(0, best_pos - 50)
     end = min(len(text), start + max_length)
 
@@ -329,6 +334,17 @@ def format_snippet(text: str, query: str, max_length: int = 200) -> str:
         snippet = "..." + snippet
     if end < len(text):
         snippet = snippet.rsplit(" ", 1)[0] + "..."
+
+    # Escape HTML before adding marks
+    snippet = escape(snippet)
+    
+    # Highlight query terms with <mark> tags
+    for word in query_words:
+        word_clean = word.rstrip("*")
+        if word_clean:
+            # Case-insensitive replacement while preserving original case
+            pattern = re.compile(re.escape(word_clean), re.IGNORECASE)
+            snippet = pattern.sub(lambda m: f"<mark>{m.group()}</mark>", snippet)
 
     return snippet
 
