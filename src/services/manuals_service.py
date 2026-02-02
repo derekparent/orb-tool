@@ -335,16 +335,23 @@ def format_snippet(text: str, query: str, max_length: int = 200) -> str:
     if end < len(text):
         snippet = snippet.rsplit(" ", 1)[0] + "..."
 
-    # Escape HTML before adding marks
-    snippet = escape(snippet)
+    # Highlight query terms using placeholders, then escape HTML
+    # Use null byte markers that won't appear in text and won't be affected by HTML escaping
+    MARK_START = "\x00MS\x00"
+    MARK_END = "\x00ME\x00"
     
-    # Highlight query terms with <mark> tags
     for word in query_words:
         word_clean = word.rstrip("*")
         if word_clean:
             # Case-insensitive replacement while preserving original case
             pattern = re.compile(re.escape(word_clean), re.IGNORECASE)
-            snippet = pattern.sub(lambda m: f"<mark>{m.group()}</mark>", snippet)
+            snippet = pattern.sub(lambda m: f"{MARK_START}{m.group()}{MARK_END}", snippet)
+    
+    # Now escape HTML (this won't affect our null-byte markers)
+    snippet = escape(snippet)
+    
+    # Replace markers with actual <mark> tags
+    snippet = snippet.replace(MARK_START, "<mark>").replace(MARK_END, "</mark>")
 
     return snippet
 
