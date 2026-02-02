@@ -3,9 +3,11 @@
 import io
 import json
 import pytest
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
+
+UTC = timezone.utc
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))

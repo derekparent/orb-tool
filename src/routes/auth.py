@@ -1,11 +1,13 @@
 """Authentication routes for Oil Record Book Tool."""
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 
 from models import db, User, UserRole
 from logging_config import get_logger, get_audit_logger
+
+UTC = timezone.utc
 
 auth_bp = Blueprint("auth", __name__)
 logger = get_logger("oil_record_book")

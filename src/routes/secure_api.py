@@ -1,6 +1,6 @@
 """Secured API routes with input validation and rate limiting."""
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from functools import wraps
 from typing import Dict, Any, Union
 
@@ -26,6 +26,8 @@ from security import (
     EquipmentBulkUpdateForm, ImageUploadForm, HitchStartForm,
     HitchEndForm, DataResetForm
 )
+
+UTC = timezone.utc
 
 secure_api_bp = Blueprint("secure_api", __name__)
 

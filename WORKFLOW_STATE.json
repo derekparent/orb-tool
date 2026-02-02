@@ -57,7 +57,9 @@
   },
   "history": [
     {"phase": "wave1", "completed": "2025-12-28", "notes": "Security, auth, migrations, tests"},
-    {"phase": "wave2", "completed": "2025-12-29", "notes": "Logging, deployment, offline, integration tests"}
+    {"phase": "wave2", "completed": "2025-12-29", "notes": "Logging, deployment, offline, integration tests"},
+    {"phase": "manuals-search", "completed": "2026-02-02", "notes": "Expanded query handling for acronyms, synonyms, and spelling variants with unit tests."},
+    {"phase": "manuals-search", "completed": "2026-02-02", "notes": "Aligned UTC usage with timezone.utc for Python 3.10 compatibility in tests."}
   ],
   "next_steps": [
     "Local testing with Docker",
@@ -66,5 +68,5 @@
     "Iterate based on crew feedback"
   ],
   "created_at": "2025-12-12T00:00:00",
-  "last_updated": "2025-12-29T04:25:00"
+  "last_updated": "2026-02-02T17:07:46Z"
 }

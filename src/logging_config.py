@@ -6,9 +6,11 @@ import logging.handlers
 import os
 import sys
 import traceback
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+UTC = timezone.utc
 
 
 class JSONFormatter(logging.Formatter):

@@ -1,6 +1,6 @@
 """API routes for Oil Record Book Tool."""
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from functools import wraps
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import login_required, current_user
@@ -15,6 +15,8 @@ from services.orb_service import ORBService
 from services.fuel_service import FuelService
 from services.ocr_service import parse_end_of_hitch_image
 from logging_config import get_logger, get_audit_logger
+
+UTC = timezone.utc
 
 api_bp = Blueprint("api", __name__)
 logger = get_logger("oil_record_book")
@@ -1215,4 +1217,3 @@ def reset_all_data():
         db.session.rollback()
         logger.exception("Data reset error")
         return jsonify({"error": f"Server error: {str(e)}"}), 500
-

@@ -1,12 +1,13 @@
 """Database models for Oil Record Book Tool."""
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 import bcrypt
 from enum import Enum
 
 db = SQLAlchemy()
+UTC = timezone.utc
 
 
 class UserRole(Enum):
@@ -506,4 +507,3 @@ class HitchRecord(db.Model):
             "end_date": self.end_date.isoformat() if self.end_date else None,
             "created_at": self.created_at.isoformat(),
         }
-
