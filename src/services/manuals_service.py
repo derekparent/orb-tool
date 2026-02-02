@@ -167,9 +167,10 @@ def _calculate_ranking_boost(
     boost = 1.0
     
     # 1. Phrase boost: multi-word query appears as phrase in content
-    query_words = query.lower().split()
+    # Filter out FTS5 boolean operators before phrase matching
+    query_words = [w for w in query.lower().split() if w.upper() not in ("AND", "OR", "NOT")]
     if len(query_words) >= 2:
-        phrase = query.lower().strip('"')
+        phrase = " ".join(query_words).strip('"')
         if _phrase_appears_in_content(phrase, content):
             boost *= 1.5  # 50% boost for phrase match
     

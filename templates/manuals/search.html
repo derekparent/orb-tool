@@ -615,7 +615,7 @@ a.tag-badge:hover {
             {% if r.tags %}
             <div class="result-tags">
                 {% for tag in r.tags[:3] %}
-                <a href="?q={{ query|urlencode }}&system={{ tag|urlencode }}&equipment={{ (equipment or '')|urlencode }}&doc_type={{ (doc_type or '')|urlencode }}&boost={{ 'on' if boost else '' }}" 
+                <a href="?q={{ query|urlencode }}&system={{ tag|urlencode }}&equipment={{ (equipment or '')|urlencode }}&doc_type={{ (doc_type or '')|urlencode }}&boost={{ '1' if boost else '0' }}" 
                    class="tag-badge">{{ tag }}</a>
                 {% endfor %}
             </div>
