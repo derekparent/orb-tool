@@ -1,6 +1,8 @@
 """Sample data fixtures for integration tests."""
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timedelta, timezone
+
+UTC = timezone.utc
 
 
 # ============================================================================

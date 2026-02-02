@@ -74,6 +74,50 @@ PROCEDURAL_KEYWORDS = {
     "calibrate", "calibration", "timing", "alignment",
 }
 
+# Query expansion for acronyms, spelling variants, and synonyms.
+ACRONYM_EXPANSIONS = {
+    "tdc": ["top dead center", "top center", "top centre"],
+    "ecm": ["engine control module", "engine control unit"],
+    "ecu": ["engine control unit", "engine control module"],
+    "o&m": ["operation and maintenance", "operations and maintenance"],
+    "om": ["operation and maintenance", "operations and maintenance"],
+    "jwac": ["jacket water aftercooler"],
+    "scac": ["seawater charge air cooler", "sea water charge air cooler"],
+    "heui": ["hydraulically actuated electronically controlled unit injector"],
+    "meui": ["mechanically actuated electronically controlled unit injector"],
+    "dpf": ["diesel particulate filter"],
+    "scr": ["selective catalytic reduction"],
+    "egr": ["exhaust gas recirculation"],
+}
+
+SPELLING_VARIANTS = {
+    "labour": "labor",
+    "centre": "center",
+    "analyse": "analyze",
+    "analysing": "analyzing",
+    "cooland": "coolant",
+}
+
+SYNONYM_EXPANSIONS = {
+    "turbo": ["turbocharger"],
+    "turbocharger": ["turbo"],
+    "schematic": ["wiring diagram", "electrical schematic"],
+    "schematics": ["wiring diagram", "electrical schematics"],
+    "wiring": ["wiring diagram", "schematic"],
+    "aftercooler": ["scac", "jwac"],
+}
+
+PHRASE_SYNONYMS = {
+    "top dead center": ["tdc", "top center", "top centre"],
+    "top center": ["tdc", "top dead center", "top centre"],
+    "top centre": ["tdc", "top dead center", "top center"],
+    "valve lash": ["valve clearance", "valve adjustment"],
+    "fuel system": ["fuel delivery", "fuel supply"],
+    "fuel filter": ["fuel filtration"],
+    "oil pressure": ["lube oil pressure"],
+    "wiring diagram": ["schematic", "electrical schematic"],
+}
+
 
 def get_manuals_db_path() -> Path:
     """Get path to manuals database."""
@@ -104,10 +148,69 @@ def load_keywords() -> dict:
 # Ranking Boost Functions
 # =============================================================================
 
+def _tokenize_query(query: str) -> list[str]:
+    """Tokenize query into lowercase words, keeping model identifiers."""
+    normalized = query.lower().replace("&", " and ")
+    return re.findall(r"[a-z0-9]+(?:[./-][a-z0-9]+)*", normalized)
+
+
+def _contains_fts_syntax(query: str) -> bool:
+    """Detect if query contains advanced FTS5 syntax that shouldn't be expanded."""
+    if any(char in query for char in ('"', "*", "(", ")", ":")):
+        return True
+    return bool(re.search(r"\b(AND|OR|NOT|NEAR)\b", query, re.IGNORECASE))
+
+
+def _quote_if_phrase(term: str) -> str:
+    """Quote term if it contains whitespace."""
+    term = term.strip()
+    if " " in term:
+        return f'"{term}"'
+    return term
+
+
+def prepare_search_query(query: str) -> str:
+    """
+    Expand query with acronyms, spelling variants, and synonyms for FTS5.
+
+    Avoids altering queries that already use advanced FTS5 syntax.
+    """
+    if not query.strip() or _contains_fts_syntax(query):
+        return query
+
+    query_lower = query.lower()
+    tokens = _tokenize_query(query_lower)
+    expansions: set[str] = set()
+
+    for token in tokens:
+        if token in ACRONYM_EXPANSIONS:
+            expansions.update(ACRONYM_EXPANSIONS[token])
+        if token in SPELLING_VARIANTS:
+            expansions.add(SPELLING_VARIANTS[token])
+        if token in SYNONYM_EXPANSIONS:
+            expansions.update(SYNONYM_EXPANSIONS[token])
+
+    for phrase, synonyms in PHRASE_SYNONYMS.items():
+        if phrase in query_lower:
+            expansions.update(synonyms)
+
+    if len(tokens) >= 2:
+        phrase = " ".join(tokens)
+        expansions.add(phrase)
+
+    expansions = {_quote_if_phrase(term) for term in expansions if term}
+
+    if not expansions:
+        return query
+
+    # Tradeoff: broader OR expansion improves recall but can add false positives.
+    expansion_clause = " OR ".join(sorted(expansions))
+    return f"({query}) OR ({expansion_clause})"
+
+
 def _is_procedural_query(query: str) -> bool:
     """Check if query indicates procedural intent."""
-    query_lower = query.lower()
-    query_words = set(query_lower.split())
+    query_words = set(_tokenize_query(query))
     return bool(query_words & PROCEDURAL_KEYWORDS)
 
 
@@ -126,7 +229,7 @@ def _get_matching_tags_for_query(query: str, keywords_data: dict) -> set[str]:
         return set()
     
     query_lower = query.lower()
-    query_words = set(query_lower.split())
+    query_words = set(_tokenize_query(query_lower))
     matching_tags = set()
     
     systems = keywords_data.get("systems", {})
@@ -385,6 +488,7 @@ def search_manuals(
 
     try:
         cursor = conn.cursor()
+        fts_query = prepare_search_query(query)
 
         where_parts = []
         params = []
@@ -424,7 +528,7 @@ def search_manuals(
                 ORDER BY bm25(pages_fts)
                 LIMIT ?
             """
-            params = [query] + params + systems + [fetch_limit]
+            params = [fts_query] + params + systems + [fetch_limit]
         else:
             sql = f"""
                 SELECT
@@ -442,7 +546,7 @@ def search_manuals(
                 ORDER BY bm25(pages_fts)
                 LIMIT ?
             """
-            params = [query] + params + [fetch_limit]
+            params = [fts_query] + params + [fetch_limit]
 
         cursor.execute(sql, params)
         rows = cursor.fetchall()
@@ -603,6 +707,7 @@ def search_cards(
     try:
         _init_cards_table(conn)
         cursor = conn.cursor()
+        fts_query = prepare_search_query(query)
 
         where_parts = []
         params = []
@@ -623,7 +728,7 @@ def search_cards(
             AND {where_clause}
             ORDER BY bm25(cards_fts)
             LIMIT ?
-        """, [query] + params + [limit])
+        """, [fts_query] + params + [limit])
 
         results = []
         for row in cursor.fetchall():

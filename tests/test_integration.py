@@ -8,9 +8,11 @@ Run with: pytest tests/test_integration.py -v -m integration
 
 import json
 import pytest
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
+
+UTC = timezone.utc
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 

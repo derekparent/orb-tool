@@ -1,7 +1,9 @@
 """Fuel consumption tracking and calculation service."""
 
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from typing import TypedDict
+
+UTC = timezone.utc
 
 
 class ConsumptionStats(TypedDict):
@@ -184,4 +186,3 @@ class FuelService:
             "average_daily": round(total / 7, 2),
             "tickets_count": len(weekly_tickets),
         }
-

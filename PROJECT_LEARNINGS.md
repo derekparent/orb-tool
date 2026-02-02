@@ -61,3 +61,15 @@ Wave 2 Integration Learnings:
 4. **Health Check Conflict**: Both logging (Agent 1) and deployment (Agent 2) PRs added /health endpoints. Resolution: Keep logging's version (has error logging) and merge deployment's APP_VERSION addition.
 
 5. **Agent PR Merge Order Matters**: Integration tests PR (#3) had zero conflicts - always merge test-only PRs first. Infrastructure PRs second, then PRs that depend on that infrastructure.
+
+### 2026-02-02 15:40
+Manuals Search Testing & Query Handling:
+
+1. **Query Expansion Improves Recall**: Adding acronyms, spelling variants, and synonym expansions in the FTS query helps match common marine-engine terms (TDC, JWAC/SCAC, turbo/turbocharger) without requiring manual query rewriting.
+2. **Phrase Boost Without Over-Filtering**: Adding a quoted phrase expansion for multi-word queries keeps results broad (AND matching) while allowing phrase matches to rank higher.
+3. **Environment Limitation for Tests**: pytest fails on Python 3.10 due to missing `datetime.UTC` in app imports; manual search unit tests should run under Python 3.11+ or use a conditional import for UTC.
+
+### 2026-02-02 17:07
+Datetime Compatibility Fix:
+
+1. **timezone.utc Standardization**: Replacing direct `datetime.UTC` imports with `timezone.utc` keeps timezone-aware defaults while restoring Python 3.10 compatibility across app and test imports.

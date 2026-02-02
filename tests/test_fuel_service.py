@@ -1,11 +1,13 @@
 """Tests for fuel service."""
 
 import pytest
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import sys
 from pathlib import Path
+
+UTC = timezone.utc
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -146,4 +148,3 @@ class TestFuelService:
         assert "14" in SERVICE_TANK_PAIRS
         assert "18" in SERVICE_TANK_PAIRS
         assert len(SERVICE_TANK_PAIRS) == 6
-
