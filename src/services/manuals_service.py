@@ -49,12 +49,144 @@ AUTHORITY_LABELS = {
     "unset": "",
 }
 
+# Doc type boost multipliers for procedural queries
+# Higher = better ranking (divides the BM25 score)
+DOC_TYPE_BOOST = {
+    "testing": 1.4,       # Best for procedural queries
+    "disassembly": 1.3,   # Second best
+    "service": 1.2,       # General service info
+    "troubleshooting": 1.1,
+    "systems": 1.0,
+    "O&M": 0.9,           # Overview, less procedural
+    "schematic": 0.8,     # Reference, rarely procedural
+    "specifications": 0.8,
+    "special-instructions": 1.0,
+}
+
+# Keywords that indicate procedural intent
+PROCEDURAL_KEYWORDS = {
+    "adjust", "adjustment", "adjusting", "set", "setting",
+    "check", "checking", "test", "testing", "measure", "measuring",
+    "replace", "replacing", "install", "installing", "remove", "removing",
+    "procedure", "how to", "step", "clearance", "lash", "torque",
+    "calibrate", "calibration", "timing", "alignment",
+}
+
 
 def get_manuals_db_path() -> Path:
     """Get path to manuals database."""
     # Look in data/ directory
     data_dir = Path(__file__).parent.parent.parent / "data"
     return data_dir / MANUALS_DB_FILE
+
+
+def get_keywords_path() -> Path:
+    """Get path to keywords.json."""
+    data_dir = Path(__file__).parent.parent.parent / "data"
+    return data_dir / "keywords.json"
+
+
+def load_keywords() -> dict:
+    """Load keywords dictionary for tag-aware ranking."""
+    keywords_path = get_keywords_path()
+    if not keywords_path.exists():
+        return {}
+    try:
+        with open(keywords_path) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+# =============================================================================
+# Ranking Boost Functions
+# =============================================================================
+
+def _is_procedural_query(query: str) -> bool:
+    """Check if query indicates procedural intent."""
+    query_lower = query.lower()
+    query_words = set(query_lower.split())
+    return bool(query_words & PROCEDURAL_KEYWORDS)
+
+
+def _phrase_appears_in_content(phrase: str, content: str) -> bool:
+    """Check if multi-word phrase appears together in content."""
+    return phrase.lower() in content.lower()
+
+
+def _get_matching_tags_for_query(query: str, keywords_data: dict) -> set[str]:
+    """
+    Find which system tags are relevant based on query keywords.
+    
+    Returns set of tag names that have matching keywords.
+    """
+    if not keywords_data:
+        return set()
+    
+    query_lower = query.lower()
+    query_words = set(query_lower.split())
+    matching_tags = set()
+    
+    systems = keywords_data.get("systems", {})
+    for tag_name, tag_info in systems.items():
+        tag_keywords = tag_info.get("keywords", [])
+        # Check if any query word matches a keyword (partial match)
+        for qword in query_words:
+            for kw in tag_keywords:
+                if qword in kw or kw in query_lower:
+                    matching_tags.add(tag_name)
+                    break
+    
+    return matching_tags
+
+
+def _calculate_ranking_boost(
+    result: dict,
+    query: str,
+    is_procedural: bool,
+    matching_tags: set[str],
+    content: str,
+) -> float:
+    """
+    Calculate combined ranking boost multiplier.
+    
+    Higher multiplier = better ranking (divides BM25 score).
+    
+    Args:
+        result: Search result dict
+        query: Original search query
+        is_procedural: Whether query has procedural intent
+        matching_tags: Set of tag names that match query keywords
+        content: Page content for phrase matching
+    
+    Returns:
+        Combined boost multiplier (>= 1.0)
+    """
+    boost = 1.0
+    
+    # 1. Phrase boost: multi-word query appears as phrase in content
+    query_words = query.lower().split()
+    if len(query_words) >= 2:
+        phrase = query.lower().strip('"')
+        if _phrase_appears_in_content(phrase, content):
+            boost *= 1.5  # 50% boost for phrase match
+    
+    # 2. Doc type boost: for procedural queries, boost testing/disassembly docs
+    if is_procedural:
+        doc_type = result.get("doc_type", "")
+        doc_boost = DOC_TYPE_BOOST.get(doc_type, 1.0)
+        boost *= doc_boost
+    
+    # 3. Tag-aware boost: if query matches tag keywords, boost docs with that tag
+    if matching_tags:
+        result_tags = set(result.get("tags", []))
+        matching_result_tags = matching_tags & result_tags
+        if matching_result_tags:
+            # 20% boost per matching tag, capped at 60%
+            tag_boost = 1.0 + min(0.2 * len(matching_result_tags), 0.6)
+            boost *= tag_boost
+    
+    return boost
 
 
 def load_manuals_database() -> Optional[sqlite3.Connection]:
@@ -294,39 +426,56 @@ def search_manuals(
         # Initialize authority table if needed
         _init_authority_table(conn)
 
+        # Pre-compute ranking boost parameters
+        is_procedural = _is_procedural_query(query)
+        keywords_data = load_keywords()
+        matching_tags = _get_matching_tags_for_query(query, keywords_data)
+
         results = []
         for row in rows:
             base_score = abs(row["score"])
             filepath = row["filepath"]
+            content = row["content"]
 
             authority_level = _get_authority_for_filepath(conn, filepath)
             authority_label = AUTHORITY_LABELS.get(authority_level, "")
 
-            if boost_primary:
-                multiplier = AUTHORITY_LEVELS.get(authority_level, 1.0)
-                adjusted_score = base_score / multiplier
-            else:
-                adjusted_score = base_score
+            # Start with base score
+            adjusted_score = base_score
 
-            # Get tags for this document
+            # Get tags for this document (needed for tag-aware boost)
             doc_tags = get_document_tags(row["filename"])
 
-            results.append({
-                "score": adjusted_score,
+            # Build result dict first (needed for boost calculation)
+            result = {
                 "base_score": base_score,
                 "filepath": filepath,
                 "filename": row["filename"],
                 "equipment": row["equipment"],
                 "doc_type": row["doc_type"],
                 "page_num": row["page_num"],
-                "snippet": format_snippet(row["content"], query),
+                "snippet": format_snippet(content, query),
                 "authority": authority_level,
                 "authority_label": authority_label,
                 "tags": doc_tags,
-            })
+            }
 
-        if boost_primary:
-            results.sort(key=lambda x: x["score"])
+            # Apply authority boost if enabled
+            if boost_primary:
+                authority_multiplier = AUTHORITY_LEVELS.get(authority_level, 1.0)
+                adjusted_score = adjusted_score / authority_multiplier
+
+            # Apply ranking boosts (phrase, doc_type, tag-aware)
+            ranking_boost = _calculate_ranking_boost(
+                result, query, is_procedural, matching_tags, content
+            )
+            adjusted_score = adjusted_score / ranking_boost
+
+            result["score"] = adjusted_score
+            results.append(result)
+
+        # Always sort by adjusted score (lower = better in BM25)
+        results.sort(key=lambda x: x["score"])
 
         return results[:limit]
 
