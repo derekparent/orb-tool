@@ -26,6 +26,14 @@ DOC_TYPE_OPTIONS = [
 ]
 SUBSYSTEM_CHOICES = ["fuel", "lube", "cooling", "controls", "starting", "alarms", "electrical", "exhaust"]
 
+# System tags (from tagging schema)
+SYSTEM_TAGS = [
+    "Fuel System", "Air Intake System", "Cooling System", "Lubrication System",
+    "Exhaust System", "Starting System", "Electrical/Controls",
+    "Cylinder Block/Internals", "Cylinder Head/Valvetrain",
+    "Safety/Alarms", "General/Maintenance"
+]
+
 # Authority levels with their search score multipliers
 AUTHORITY_LEVELS = {
     "primary": 1.5,
@@ -72,6 +80,89 @@ def is_manuals_db_available() -> bool:
 
 
 # =============================================================================
+# Tag Functions
+# =============================================================================
+
+def get_tag_facets(equipment: Optional[str] = None) -> list[dict]:
+    """
+    Get tag counts for faceted search.
+
+    Args:
+        equipment: Optional equipment filter
+
+    Returns:
+        List of dicts with tag_name, tag_category, doc_count
+    """
+    conn = load_manuals_database()
+    if not conn:
+        return []
+
+    try:
+        cursor = conn.cursor()
+
+        # Check if tags table exists
+        cursor.execute("""
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name='tags'
+        """)
+        if not cursor.fetchone():
+            return []
+
+        sql = """
+            SELECT t.tag_name, t.tag_category, COUNT(DISTINCT d.doc_id) as doc_count
+            FROM tags t
+            JOIN document_tags dt ON t.tag_id = dt.tag_id
+            JOIN documents d ON dt.doc_id = d.doc_id
+            WHERE t.tag_category = 'system'
+        """
+        params = []
+
+        if equipment:
+            sql += " AND d.equipment = ?"
+            params.append(equipment)
+
+        sql += " GROUP BY t.tag_id ORDER BY doc_count DESC"
+
+        cursor.execute(sql, params)
+        return [
+            {
+                "tag_name": row["tag_name"],
+                "tag_category": row["tag_category"],
+                "doc_count": row["doc_count"]
+            }
+            for row in cursor.fetchall()
+        ]
+
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+
+def get_document_tags(filename: str) -> list[str]:
+    """Get tags for a specific document by filename."""
+    conn = load_manuals_database()
+    if not conn:
+        return []
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT t.tag_name
+            FROM tags t
+            JOIN document_tags dt ON t.tag_id = dt.tag_id
+            JOIN documents d ON dt.doc_id = d.doc_id
+            WHERE d.filename = ?
+            ORDER BY dt.tag_weight DESC
+        """, (filename,))
+        return [row["tag_name"] for row in cursor.fetchall()]
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+
+# =============================================================================
 # Search Functions
 # =============================================================================
 
@@ -114,6 +205,7 @@ def search_manuals(
     query: str,
     equipment: Optional[str] = None,
     doc_type: Optional[str] = None,
+    systems: Optional[list[str]] = None,
     limit: int = 50,
     boost_primary: bool = False,
 ) -> list[dict]:
@@ -124,6 +216,7 @@ def search_manuals(
         query: Search query string (supports FTS5 syntax)
         equipment: Filter by equipment (3516, C18, C32, C4.4)
         doc_type: Filter by document type
+        systems: Filter by subsystem tags (e.g., ["Fuel System", "Cooling System"])
         limit: Max results to return
         boost_primary: If True, apply authority-based score multipliers
 
@@ -151,24 +244,49 @@ def search_manuals(
 
         fetch_limit = limit * 3 if boost_primary else limit
 
-        sql = f"""
-            SELECT
-                p.filepath,
-                p.filename,
-                p.equipment,
-                p.doc_type,
-                p.page_num,
-                p.content,
-                bm25(pages_fts) as score
-            FROM pages_fts
-            JOIN pages p ON pages_fts.rowid = p.id
-            WHERE pages_fts MATCH ?
-            AND {where_clause}
-            ORDER BY bm25(pages_fts)
-            LIMIT ?
-        """
-
-        params = [query] + params + [fetch_limit]
+        # Build base query
+        if systems:
+            # Join with tags to filter by system
+            placeholders = ",".join("?" * len(systems))
+            sql = f"""
+                SELECT DISTINCT
+                    p.filepath,
+                    p.filename,
+                    p.equipment,
+                    p.doc_type,
+                    p.page_num,
+                    p.content,
+                    bm25(pages_fts) as score
+                FROM pages_fts
+                JOIN pages p ON pages_fts.rowid = p.id
+                JOIN documents d ON p.filename = d.filename
+                JOIN document_tags dt ON d.doc_id = dt.doc_id
+                JOIN tags t ON dt.tag_id = t.tag_id
+                WHERE pages_fts MATCH ?
+                AND {where_clause}
+                AND t.tag_name IN ({placeholders})
+                ORDER BY bm25(pages_fts)
+                LIMIT ?
+            """
+            params = [query] + params + systems + [fetch_limit]
+        else:
+            sql = f"""
+                SELECT
+                    p.filepath,
+                    p.filename,
+                    p.equipment,
+                    p.doc_type,
+                    p.page_num,
+                    p.content,
+                    bm25(pages_fts) as score
+                FROM pages_fts
+                JOIN pages p ON pages_fts.rowid = p.id
+                WHERE pages_fts MATCH ?
+                AND {where_clause}
+                ORDER BY bm25(pages_fts)
+                LIMIT ?
+            """
+            params = [query] + params + [fetch_limit]
 
         cursor.execute(sql, params)
         rows = cursor.fetchall()
@@ -190,6 +308,9 @@ def search_manuals(
             else:
                 adjusted_score = base_score
 
+            # Get tags for this document
+            doc_tags = get_document_tags(row["filename"])
+
             results.append({
                 "score": adjusted_score,
                 "base_score": base_score,
@@ -201,6 +322,7 @@ def search_manuals(
                 "snippet": format_snippet(row["content"], query),
                 "authority": authority_level,
                 "authority_label": authority_label,
+                "tags": doc_tags,
             })
 
         if boost_primary:

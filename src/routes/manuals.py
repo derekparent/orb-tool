@@ -15,12 +15,14 @@ from services.manuals_service import (
     get_card,
     list_cards,
     get_index_stats,
+    get_tag_facets,
     log_search,
     open_pdf_to_page,
     is_manuals_db_available,
     EQUIPMENT_OPTIONS,
     DOC_TYPE_OPTIONS,
     SUBSYSTEM_CHOICES,
+    SYSTEM_TAGS,
 )
 
 manuals_bp = Blueprint("manuals", __name__, url_prefix="/manuals")
@@ -38,22 +40,29 @@ def search():
             query="",
             equipment="All",
             doc_type="All",
+            systems=[],
             boost=False,
             results=[],
             card_results=[],
             error="Manuals database not found. Place engine_search.db in data/ folder.",
             equipment_options=EQUIPMENT_OPTIONS,
             doc_type_options=DOC_TYPE_OPTIONS,
+            tag_facets=[],
         )
 
     query = request.args.get("q", "").strip()
     equipment = request.args.get("equipment", "All")
     doc_type = request.args.get("doc_type", "All")
+    systems = request.args.getlist("system")  # Multiple checkbox values
     boost = request.args.get("boost", "0") == "1"
 
     # Convert "All" to None for search functions
     equipment_filter = None if equipment == "All" else equipment
     doc_type_filter = None if doc_type == "All" else doc_type
+    systems_filter = systems if systems else None
+
+    # Get tag facets for filter UI
+    tag_facets = get_tag_facets(equipment=equipment_filter)
 
     results = []
     card_results = []
@@ -66,6 +75,7 @@ def search():
                 query,
                 equipment=equipment_filter,
                 doc_type=doc_type_filter,
+                systems=systems_filter,
                 limit=50,
                 boost_primary=boost
             )
@@ -93,12 +103,14 @@ def search():
         query=query,
         equipment=equipment,
         doc_type=doc_type,
+        systems=systems,
         boost=boost,
         results=results,
         card_results=card_results,
         error=error,
         equipment_options=EQUIPMENT_OPTIONS,
         doc_type_options=DOC_TYPE_OPTIONS,
+        tag_facets=tag_facets,
     )
 
 

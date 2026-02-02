@@ -98,6 +98,86 @@
     accent-color: var(--accent-primary);
 }
 
+/* System filter styles */
+.system-filters {
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+}
+
+.system-filters summary {
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.system-filters summary:hover {
+    color: var(--text-primary);
+}
+
+.system-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+}
+
+.system-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.system-checkbox:hover {
+    color: var(--text-primary);
+}
+
+.system-checkbox input[type="checkbox"] {
+    width: 0.9rem;
+    height: 0.9rem;
+    accent-color: var(--accent-primary);
+}
+
+.system-checkbox .count {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.tag-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    margin-right: 4px;
+    margin-bottom: 4px;
+}
+
+.active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    margin-top: var(--space-sm);
+}
+
+.active-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: var(--accent-primary);
+    color: var(--bg-dark);
+    font-size: 0.75rem;
+    border-radius: var(--radius-sm);
+}
+
 .results-summary {
     padding: var(--space-md);
     background: var(--bg-card);
@@ -363,6 +443,30 @@
                 </label>
             </div>
         </div>
+
+        {% if tag_facets %}
+        <details class="system-filters" {% if systems %}open{% endif %}>
+            <summary>Filter by System ({{ tag_facets|length }} available)</summary>
+            <div class="system-grid">
+                {% for tag in tag_facets %}
+                <label class="system-checkbox">
+                    <input type="checkbox" name="system" value="{{ tag.tag_name }}"
+                           {% if tag.tag_name in systems %}checked{% endif %}>
+                    {{ tag.tag_name }} <span class="count">({{ tag.doc_count }})</span>
+                </label>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+
+        {% if systems %}
+        <div class="active-filters">
+            <span style="font-size: 0.75rem; color: var(--text-secondary);">Active filters:</span>
+            {% for sys in systems %}
+            <span class="active-filter">{{ sys }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
     </form>
 
     {% if error %}
@@ -426,6 +530,13 @@
             <div class="result-meta">
                 <span class="equipment">{{ r.equipment }}</span>
                 <span class="score">Score: {{ "%.2f"|format(r.score) }}</span>
+                {% if r.tags %}
+                <span class="result-tags">
+                    {% for tag in r.tags[:3] %}
+                    <span class="tag-badge">{{ tag }}</span>
+                    {% endfor %}
+                </span>
+                {% endif %}
             </div>
             <div class="result-snippet">{{ r.snippet }}</div>
             <div class="result-actions">

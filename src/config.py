@@ -23,6 +23,13 @@ class Config:
     # Data files
     SOUNDING_TABLES_PATH = BASE_DIR / "data" / "sounding_tables.json"
 
+    # Manuals/Engine Search
+    MANUALS_DB_PATH = BASE_DIR / "data" / "engine_search.db"
+    MANUALS_PDF_DIR = Path(os.environ.get(
+        "MANUALS_PDF_DIR",
+        "/Users/dp/Projects/engine_tool"  # Default for DP's machine
+    ))
+
     # Security settings
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = 3600  # 1 hour

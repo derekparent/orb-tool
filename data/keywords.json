@@ -1,0 +1,144 @@
+{
+  "systems": {
+    "Fuel System": {
+      "category": "system",
+      "keywords": [
+        "injector", "fuel pump", "fuel filter", "fuel rack", "fuel pressure",
+        "fuel line", "fuel nozzle", "fuel cooler", "meui", "heui", "common rail",
+        "fuel transfer", "fuel supply", "fuel return", "fuel tank", "fuel priming",
+        "fuel solenoid", "fuel shutoff", "fuel injection", "fuel timing",
+        "low fuel pressure", "fuel leak", "fuel contamination", "water in fuel"
+      ]
+    },
+    "Air Intake System": {
+      "category": "system",
+      "keywords": [
+        "turbocharger", "turbo", "aftercooler", "scac", "jwac", "intercooler",
+        "air filter", "intake manifold", "boost pressure", "boost", "compressor",
+        "charge air", "air restriction", "air inlet", "intake", "aspiration",
+        "turbocharged", "wastegate", "compressor surge", "turbo lag"
+      ]
+    },
+    "Cooling System": {
+      "category": "system",
+      "keywords": [
+        "coolant", "radiator", "heat exchanger", "thermostat", "water pump",
+        "freshwater", "seawater", "coolant temp", "overheating", "jacket water",
+        "coolant level", "coolant pressure", "expansion tank", "raw water",
+        "keel cooler", "coolant flow", "water temperature", "cooling fan",
+        "coolant leak", "cavitation"
+      ]
+    },
+    "Lubrication System": {
+      "category": "system",
+      "keywords": [
+        "oil pump", "oil filter", "oil cooler", "lube oil", "lubricating oil",
+        "oil pressure", "oil gallery", "bearings", "oil analysis", "oil sampling",
+        "oil level", "oil temp", "crankcase", "oil pan", "low oil pressure",
+        "oil leak", "sump", "oil drain", "oil fill"
+      ]
+    },
+    "Exhaust System": {
+      "category": "system",
+      "keywords": [
+        "exhaust manifold", "turbo turbine", "muffler", "silencer", "exhaust gas",
+        "scr", "dpf", "aftertreatment", "exhaust temperature", "exhaust back pressure",
+        "exhaust leak", "exhaust pyrometer", "egt"
+      ]
+    },
+    "Starting System": {
+      "category": "system",
+      "keywords": [
+        "starter motor", "starter", "air start", "hydraulic start", "solenoid",
+        "cranking", "starting torque", "starting air", "starting motor",
+        "magnetic switch", "starter relay", "prelube", "barring"
+      ]
+    },
+    "Electrical/Controls": {
+      "category": "system",
+      "keywords": [
+        "ecu", "ecm", "governor", "sensor", "wiring", "alternator", "battery",
+        "relay", "switch", "electrical", "harness", "connector", "diagnostic",
+        "circuit breaker", "fuse", "voltage", "amperage", "ground", "power supply",
+        "j1939", "can bus", "mpd", "marine power display"
+      ]
+    },
+    "Cylinder Block/Internals": {
+      "category": "system",
+      "keywords": [
+        "piston", "crankshaft", "connecting rod", "bearing", "cylinder liner",
+        "ring", "block", "bore", "stroke", "main bearing", "rod bearing",
+        "piston ring", "cylinder wall", "crankcase", "engine block"
+      ]
+    },
+    "Cylinder Head/Valvetrain": {
+      "category": "system",
+      "keywords": [
+        "cylinder head", "valve", "camshaft", "rocker arm", "push rod",
+        "timing gear", "valve train", "valve timing", "valve clearance",
+        "valve seat", "valve guide", "valve spring", "cam follower",
+        "valve adjustment", "valve lash"
+      ]
+    },
+    "Safety/Alarms": {
+      "category": "system",
+      "keywords": [
+        "overspeed", "trip", "shutdown", "alarm", "high temp", "low oil",
+        "low pressure", "emergency", "safety", "protective", "warning",
+        "fault", "asos", "air shutoff", "emergency stop", "e-stop"
+      ]
+    },
+    "General/Maintenance": {
+      "category": "system",
+      "keywords": [
+        "maintenance", "service interval", "torque", "specification",
+        "troubleshooting", "disassembly", "assembly", "inspection",
+        "overhaul", "rebuild", "adjustment", "calibration"
+      ]
+    }
+  },
+  "cross_cutting": {
+    "Sensors": {
+      "category": "cross_cutting",
+      "keywords": [
+        "sensor", "temperature sensor", "pressure sensor", "speed sensor",
+        "flow sensor", "load cell", "transducer", "sending unit", "pickup"
+      ]
+    },
+    "Wiring/Electrical": {
+      "category": "cross_cutting",
+      "keywords": [
+        "wire", "wiring", "harness", "connector", "terminal", "cable",
+        "electrical", "circuit", "pin", "socket", "crimping"
+      ]
+    },
+    "Gaskets/Seals": {
+      "category": "cross_cutting",
+      "keywords": [
+        "gasket", "seal", "o-ring", "packing", "sealant"
+      ]
+    },
+    "Fasteners/Hardware": {
+      "category": "cross_cutting",
+      "keywords": [
+        "bolt", "stud", "nut", "retainer", "washer", "torque spec"
+      ]
+    }
+  },
+  "smcs_codes": {
+    "1001": "Engine general, start, stop",
+    "1250": "Fuel system",
+    "1350": "Cooling system",
+    "1450": "Lubrication system",
+    "1550": "Air inlet system",
+    "1650": "Exhaust system",
+    "1700": "Starting system",
+    "1800": "Electrical system",
+    "1900": "Diagnostic capabilities"
+  },
+  "metadata": {
+    "version": "1.0",
+    "created": "2026-02-01",
+    "notes": "Initial keyword dictionary based on Perplexity guide. Validated against 62 CAT PDFs (3516, C18, C32, C4.4). SMCS codes added for CAT document cross-reference."
+  }
+}
