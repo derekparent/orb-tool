@@ -1,7 +1,7 @@
 # Oil Record Book Tool Rules
 
 ## Git
-- Use SSH: git@github.com:Dparent97/oil_record_book_tool.git
+- Use SSH: git@github.com:derekparent/orb-tool.git
 - Conventional commits: feat:, fix:, docs:, refactor:, chore:
 - Never mention AI in commits
 

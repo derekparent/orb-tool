@@ -7,7 +7,7 @@
 
 If push fails with "could not read Username":
 ```bash
-git remote set-url origin git@github.com:Dparent97/oil_record_book_tool.git
+git remote set-url origin git@github.com:derekparent/orb-tool.git
 ```
 
 ## Commit Convention

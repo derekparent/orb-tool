@@ -28,7 +28,7 @@ This guide covers deploying the Oil Record Book Tool to production.
 
 ```bash
 # 1. Clone the repository
-git clone git@github.com:Dparent97/oil_record_book_tool.git
+git clone git@github.com:derekparent/orb-tool.git
 cd oil_record_book_tool
 
 # 2. Create environment file
@@ -140,7 +140,7 @@ sudo useradd -m -s /bin/bash orb
 sudo su - orb
 
 # Clone repository
-git clone git@github.com:Dparent97/oil_record_book_tool.git
+git clone git@github.com:derekparent/orb-tool.git
 cd oil_record_book_tool
 
 # Create virtual environment
