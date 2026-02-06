@@ -620,81 +620,88 @@ def search_manuals(
 def get_context_for_llm(
     query: str,
     equipment: Optional[str] = None,
-    limit: int = 5,
+    limit: int = 10,
 ) -> list[dict]:
     """
-    Retrieve structured manual context for the LLM assistant.
+    Retrieve search results for LLM context via search_manuals().
 
-    Returns top search results with full page content (not snippets)
-    formatted for RAG context injection.
+    Single search path: both the search UI and LLM use the same
+    ranking (authority boost, phrase boost, tag-aware boost).
+    Returns summaries (snippets) for triage, not full page content.
 
     Args:
         query: User's question
         equipment: Optional equipment filter
-        limit: Max excerpts to return
+        limit: Max results to return
 
     Returns:
-        List of dicts with: content, filename, page_num, equipment, doc_type, authority
+        List of dicts with: filename, page_num, equipment, doc_type,
+        snippet, authority, score
     """
+    results = search_manuals(
+        query, equipment=equipment, boost_primary=True, limit=limit
+    )
+    return [
+        {
+            "filename": r["filename"],
+            "page_num": r["page_num"],
+            "equipment": r["equipment"],
+            "doc_type": r["doc_type"],
+            "snippet": r["snippet"],
+            "authority": r["authority"],
+            "score": r["score"],
+        }
+        for r in results
+    ]
+
+
+def get_pages_content(
+    filename: str,
+    page_nums: list[int],
+) -> list[dict]:
+    """
+    Fetch full page content by filename and page numbers.
+
+    Used for deep-dive phase: after the LLM triages search results
+    and the user picks specific pages to examine.
+
+    Args:
+        filename: Document filename (e.g. 'kenr5403-00_3516-testing-&-adjusting')
+        page_nums: List of page numbers to fetch
+
+    Returns:
+        List of dicts with: content, filename, page_num, equipment, doc_type
+    """
+    if not page_nums:
+        return []
+
     conn = load_manuals_database()
     if not conn:
         return []
 
     try:
         cursor = conn.cursor()
-        fts_query = prepare_search_query(query)
+        placeholders = ",".join("?" * len(page_nums))
+        cursor.execute(
+            f"""
+            SELECT filepath, filename, equipment, doc_type, page_num, content
+            FROM pages
+            WHERE filename = ? AND page_num IN ({placeholders})
+            ORDER BY page_num
+            """,
+            [filename] + list(page_nums),
+        )
 
-        where_parts = []
-        params = []
-
-        if equipment:
-            where_parts.append("p.equipment = ?")
-            params.append(equipment)
-
-        where_clause = " AND ".join(where_parts) if where_parts else "1=1"
-
-        sql = f"""
-            SELECT
-                p.filepath,
-                p.filename,
-                p.equipment,
-                p.doc_type,
-                p.page_num,
-                p.content,
-                bm25(pages_fts) as score
-            FROM pages_fts
-            JOIN pages p ON pages_fts.rowid = p.id
-            WHERE pages_fts MATCH ?
-            AND {where_clause}
-            ORDER BY bm25(pages_fts)
-            LIMIT ?
-        """
-        params = [fts_query] + params + [limit * 2]
-
-        cursor.execute(sql, params)
-        rows = cursor.fetchall()
-
-        _init_authority_table(conn)
-
-        results = []
-        for row in rows:
-            authority = _get_authority_for_filepath(conn, row["filepath"])
-            results.append({
+        return [
+            {
                 "content": row["content"].strip(),
                 "filename": row["filename"],
                 "page_num": row["page_num"],
                 "equipment": row["equipment"],
                 "doc_type": row["doc_type"],
-                "authority": authority,
-                "score": abs(row["score"]),
-            })
-
-        # Sort by authority (primary first) then by score
-        authority_order = {"primary": 0, "secondary": 1, "unset": 2, "mention": 3}
-        results.sort(key=lambda r: (authority_order.get(r["authority"], 2), r["score"]))
-
-        return results[:limit]
-
+            }
+            for row in cursor.fetchall()
+        ]
     except sqlite3.OperationalError:
         return []
     finally:

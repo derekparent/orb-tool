@@ -1,8 +1,18 @@
-"""Tests for LLM Manuals Assistant feature."""
+"""Tests for LLM Manuals Assistant feature.
+
+Covers:
+  - Prompt building (format_search_results, format_page_content, build_messages)
+  - LLM service wrapper
+  - get_context_for_llm (verifies it wraps search_manuals)
+  - get_pages_content
+  - detect_equipment
+  - Chat routes (mocked LLM)
+  - ChatSession model
+"""
 
 import json
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 
 import sys
 from pathlib import Path
@@ -11,83 +21,164 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 # ─────────────────────────────────────────────────────────────────
-# Unit Tests: Prompt building
+# Unit Tests: Prompt building — format_search_results
 # ─────────────────────────────────────────────────────────────────
 
-class TestFormatContext:
-    """Test context formatting for LLM."""
+class TestFormatSearchResults:
+    """Test triage context formatting for LLM."""
 
     def test_empty_results(self):
-        from prompts.manuals_assistant import format_context
+        from prompts.manuals_assistant import format_search_results
 
-        ctx = format_context([])
-        assert "<context>" in ctx
-        assert "No relevant manual excerpts found" in ctx
+        ctx = format_search_results([], "valve lash")
+        assert "<search_results" in ctx
+        assert 'count="0"' in ctx
+        assert "No results found" in ctx
 
-    def test_formats_results_with_citations(self):
-        from prompts.manuals_assistant import format_context
+    def test_formats_numbered_results(self):
+        from prompts.manuals_assistant import format_search_results
 
         results = [
             {
-                "content": "Torque to 45 Nm",
-                "filename": "3516_testing.pdf",
-                "page_num": 12,
+                "filename": "kenr5403-00_3516-testing",
+                "page_num": 48,
                 "equipment": "3516",
                 "doc_type": "testing",
+                "snippet": "...Injector Adjustment and <mark>Valve Lash</mark> Setting...",
                 "authority": "primary",
+                "score": 2.1,
             }
         ]
-        ctx = format_context(results)
-        assert "Excerpt 1" in ctx
-        assert "[PRIMARY]" in ctx
-        assert "3516_testing.pdf" in ctx
-        assert "Page 12" in ctx
-        assert "Torque to 45 Nm" in ctx
+        ctx = format_search_results(results, "valve lash", equipment="3516")
+
+        assert 'query="valve lash"' in ctx
+        assert 'equipment="3516"' in ctx
+        assert 'count="1"' in ctx
+        assert "1. kenr5403-00_3516-testing | Page 48 | TESTING [PRIMARY]" in ctx
+        # HTML marks stripped
+        assert "<mark>" not in ctx
+        assert "Valve Lash" in ctx
 
     def test_multiple_results(self):
-        from prompts.manuals_assistant import format_context
+        from prompts.manuals_assistant import format_search_results
 
         results = [
             {
-                "content": "Step 1",
                 "filename": "a.pdf",
                 "page_num": 1,
                 "equipment": "3516",
                 "doc_type": "testing",
+                "snippet": "Step 1",
                 "authority": "primary",
+                "score": 1.0,
             },
             {
-                "content": "Step 2",
                 "filename": "b.pdf",
                 "page_num": 5,
                 "equipment": "C18",
                 "doc_type": "service",
+                "snippet": "Step 2",
                 "authority": "unset",
+                "score": 3.0,
             },
         ]
-        ctx = format_context(results)
-        assert "Excerpt 1" in ctx
-        assert "Excerpt 2" in ctx
-        assert "a.pdf" in ctx
-        assert "b.pdf" in ctx
+        ctx = format_search_results(results, "test query")
 
-    def test_unset_authority_no_label(self):
-        from prompts.manuals_assistant import format_context
+        assert "1. a.pdf" in ctx
+        assert "2. b.pdf" in ctx
+        assert 'count="2"' in ctx
+
+    def test_unset_authority_no_tag(self):
+        from prompts.manuals_assistant import format_search_results
 
         results = [
             {
-                "content": "Content",
                 "filename": "doc.pdf",
                 "page_num": 1,
                 "equipment": "C32",
                 "doc_type": "O&M",
+                "snippet": "Content here",
                 "authority": "unset",
+                "score": 2.0,
             }
         ]
-        ctx = format_context(results)
-        assert "[UNSET]" not in ctx
-        assert "Excerpt 1 ---" in ctx
+        ctx = format_search_results(results, "query")
 
+        assert "[UNSET]" not in ctx
+        assert "[PRIMARY]" not in ctx
+        assert "O&M" in ctx.upper()
+
+    def test_no_equipment_filter(self):
+        from prompts.manuals_assistant import format_search_results
+
+        ctx = format_search_results([], "test")
+        assert "equipment=" not in ctx
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: Prompt building — format_page_content
+# ─────────────────────────────────────────────────────────────────
+
+class TestFormatPageContent:
+    """Test deep-dive page content formatting."""
+
+    def test_empty_pages(self):
+        from prompts.manuals_assistant import format_page_content
+
+        ctx = format_page_content([])
+        assert "<page_content>" in ctx
+        assert "No page content available" in ctx
+
+    def test_formats_full_pages(self):
+        from prompts.manuals_assistant import format_page_content
+
+        pages = [
+            {
+                "content": "Step 1: Remove valve cover.\nStep 2: Measure clearance.",
+                "filename": "kenr5403-00_3516-testing",
+                "page_num": 48,
+                "equipment": "3516",
+                "doc_type": "testing",
+            }
+        ]
+        ctx = format_page_content(pages)
+
+        assert "<page_content>" in ctx
+        assert "</page_content>" in ctx
+        assert "kenr5403-00_3516-testing, Page 48" in ctx
+        assert "3516 | testing" in ctx
+        assert "Step 1: Remove valve cover" in ctx
+
+    def test_multiple_pages(self):
+        from prompts.manuals_assistant import format_page_content
+
+        pages = [
+            {
+                "content": "Page 48 content",
+                "filename": "doc.pdf",
+                "page_num": 48,
+                "equipment": "3516",
+                "doc_type": "testing",
+            },
+            {
+                "content": "Page 49 content",
+                "filename": "doc.pdf",
+                "page_num": 49,
+                "equipment": "3516",
+                "doc_type": "testing",
+            },
+        ]
+        ctx = format_page_content(pages)
+
+        assert "Page 48" in ctx
+        assert "Page 49" in ctx
+        assert "Page 48 content" in ctx
+        assert "Page 49 content" in ctx
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: build_messages
+# ─────────────────────────────────────────────────────────────────
 
 class TestBuildMessages:
     """Test message assembly."""
@@ -95,8 +186,8 @@ class TestBuildMessages:
     def test_builds_system_with_context(self):
         from prompts.manuals_assistant import build_messages
 
-        system, messages = build_messages("<context>test</context>", [], "my query")
-        assert "<context>test</context>" in system
+        system, messages = build_messages("<search_results>test</search_results>", [], "my query")
+        assert "<search_results>test</search_results>" in system
         assert len(messages) == 1
         assert messages[0]["role"] == "user"
         assert messages[0]["content"] == "my query"
@@ -108,11 +199,19 @@ class TestBuildMessages:
             {"role": "user", "content": "hello"},
             {"role": "assistant", "content": "hi there"},
         ]
-        system, messages = build_messages("<context/>", history, "follow up")
+        system, messages = build_messages("<search_results/>", history, "follow up")
         assert len(messages) == 3
         assert messages[0]["role"] == "user"
         assert messages[0]["content"] == "hello"
         assert messages[2]["content"] == "follow up"
+
+    def test_system_prompt_has_collaborative_framing(self):
+        from prompts.manuals_assistant import build_messages, SYSTEM_PROMPT
+
+        assert "engineer drives" in SYSTEM_PROMPT.lower()
+        assert "triage" in SYSTEM_PROMPT.lower()
+        assert "<search_results>" in SYSTEM_PROMPT
+        assert "<page_content>" in SYSTEM_PROMPT
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -165,54 +264,185 @@ class TestLLMService:
 
 
 # ─────────────────────────────────────────────────────────────────
-# Unit Tests: get_context_for_llm
+# Unit Tests: detect_equipment
+# ─────────────────────────────────────────────────────────────────
+
+class TestDetectEquipment:
+    """Test auto-detection of equipment model from query text."""
+
+    def test_detects_3516(self):
+        from services.chat_service import detect_equipment
+
+        assert detect_equipment("3516 valve lash") == "3516"
+
+    def test_detects_c18_case_insensitive(self):
+        from services.chat_service import detect_equipment
+
+        assert detect_equipment("c18 coolant temp") == "C18"
+        assert detect_equipment("C18 coolant temp") == "C18"
+
+    def test_detects_c32(self):
+        from services.chat_service import detect_equipment
+
+        assert detect_equipment("the C32 fuel system") == "C32"
+
+    def test_detects_c4_4_with_dot(self):
+        from services.chat_service import detect_equipment
+
+        assert detect_equipment("C4.4 oil pressure") == "C4.4"
+
+    def test_returns_none_for_no_match(self):
+        from services.chat_service import detect_equipment
+
+        assert detect_equipment("valve lash adjustment") is None
+
+    def test_returns_first_match(self):
+        from services.chat_service import detect_equipment
+
+        # Multiple equipment mentioned — returns first
+        result = detect_equipment("3516 vs C18 comparison")
+        assert result == "3516"
+
+    def test_does_not_match_partial(self):
+        from services.chat_service import detect_equipment
+
+        # "35168" should not match "3516"
+        assert detect_equipment("part number 35168") is None
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: _resolve_equipment
+# ─────────────────────────────────────────────────────────────────
+
+class TestResolveEquipment:
+    """Test equipment resolution (dropdown wins, then auto-detect)."""
+
+    def test_explicit_wins_over_auto_detect(self):
+        from services.chat_service import _resolve_equipment
+
+        # Dropdown says 3516, query mentions C18 — dropdown wins
+        assert _resolve_equipment("3516", "C18 coolant temp") == "3516"
+
+    def test_auto_detect_when_no_explicit(self):
+        from services.chat_service import _resolve_equipment
+
+        assert _resolve_equipment(None, "3516 valve lash") == "3516"
+        assert _resolve_equipment("", "C18 specs") == "C18"
+
+    def test_none_when_neither(self):
+        from services.chat_service import _resolve_equipment
+
+        assert _resolve_equipment(None, "valve lash adjustment") is None
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: get_context_for_llm wraps search_manuals
 # ─────────────────────────────────────────────────────────────────
 
 class TestGetContextForLLM:
-    """Test RAG context retrieval."""
+    """Test that get_context_for_llm delegates to search_manuals."""
+
+    @patch("services.manuals_service.search_manuals")
+    def test_calls_search_manuals(self, mock_search):
+        from services.manuals_service import get_context_for_llm
+
+        mock_search.return_value = [
+            {
+                "filepath": "/path/to/doc.pdf",
+                "filename": "doc.pdf",
+                "equipment": "3516",
+                "doc_type": "testing",
+                "page_num": 48,
+                "snippet": "...valve lash...",
+                "authority": "primary",
+                "authority_label": "[PRIMARY]",
+                "tags": ["Cylinder Head/Valvetrain"],
+                "score": 2.1,
+                "base_score": 3.0,
+            }
+        ]
+
+        results = get_context_for_llm("valve lash", equipment="3516", limit=10)
+
+        # Verify search_manuals was called with correct args
+        mock_search.assert_called_once_with(
+            "valve lash", equipment="3516", boost_primary=True, limit=10
+        )
+
+        # Verify result shape — should have snippet, not content
+        assert len(results) == 1
+        assert results[0]["snippet"] == "...valve lash..."
+        assert results[0]["filename"] == "doc.pdf"
+        assert results[0]["equipment"] == "3516"
+        assert results[0]["authority"] == "primary"
+        assert "content" not in results[0]
+
+    @patch("services.manuals_service.search_manuals")
+    def test_returns_empty_when_no_results(self, mock_search):
+        from services.manuals_service import get_context_for_llm
+
+        mock_search.return_value = []
+        results = get_context_for_llm("nonexistent query")
+        assert results == []
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: get_pages_content
+# ─────────────────────────────────────────────────────────────────
+
+class TestGetPagesContent:
+    """Test full page content retrieval."""
 
     @patch("services.manuals_service.load_manuals_database")
     def test_returns_empty_when_no_db(self, mock_db):
-        from services.manuals_service import get_context_for_llm
+        from services.manuals_service import get_pages_content
 
         mock_db.return_value = None
-        results = get_context_for_llm("test query")
+        results = get_pages_content("doc.pdf", [48, 49])
+        assert results == []
+
+    def test_returns_empty_for_empty_page_list(self):
+        from services.manuals_service import get_pages_content
+
+        results = get_pages_content("doc.pdf", [])
         assert results == []
 
     @patch("services.manuals_service.load_manuals_database")
-    def test_returns_structured_results(self, mock_db):
-        from services.manuals_service import get_context_for_llm
+    def test_returns_structured_pages(self, mock_db):
+        from services.manuals_service import get_pages_content
 
-        # Set up mock DB
         mock_conn = MagicMock()
         mock_db.return_value = mock_conn
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
 
-        # Mock row data
-        mock_row = {
-            "filepath": "/path/to/doc.pdf",
-            "filename": "doc.pdf",
-            "equipment": "3516",
-            "doc_type": "testing",
-            "page_num": 5,
-            "content": "Torque value is 45 Nm",
-            "score": -2.5,
-        }
-        mock_cursor.fetchall.return_value = [mock_row]
-
-        # Mock authority lookup
-        mock_cursor.fetchone.side_effect = [
-            {"name": "doc_authority"},  # table exists check
-            {"authority_level": "primary"},  # authority lookup
+        mock_cursor.fetchall.return_value = [
+            {
+                "filepath": "/path/to/doc.pdf",
+                "filename": "doc.pdf",
+                "equipment": "3516",
+                "doc_type": "testing",
+                "page_num": 48,
+                "content": "  Step 1: Remove valve cover.  ",
+            },
+            {
+                "filepath": "/path/to/doc.pdf",
+                "filename": "doc.pdf",
+                "equipment": "3516",
+                "doc_type": "testing",
+                "page_num": 49,
+                "content": "  Step 2: Measure clearance.  ",
+            },
         ]
 
-        results = get_context_for_llm("torque specs")
+        results = get_pages_content("doc.pdf", [48, 49])
 
-        assert len(results) == 1
-        assert results[0]["content"] == "Torque value is 45 Nm"
-        assert results[0]["filename"] == "doc.pdf"
-        assert results[0]["equipment"] == "3516"
+        assert len(results) == 2
+        assert results[0]["page_num"] == 48
+        assert results[0]["content"] == "Step 1: Remove valve cover."  # stripped
+        assert results[1]["page_num"] == 49
+        assert "content" in results[0]
+        assert "filename" in results[0]
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -278,6 +508,21 @@ class TestChatRoutes:
         )
         assert response.status_code == 200
         assert response.content_type.startswith("text/event-stream")
+
+    @patch("routes.chat.get_llm_service")
+    @patch("routes.chat.stream_chat_response")
+    def test_send_message_passes_equipment(self, mock_stream, mock_get_llm, app, client):
+        """POST with equipment should pass it through to stream_chat_response."""
+        self._login(app, client)
+        mock_get_llm.return_value = MagicMock()
+        mock_stream.return_value = iter(["response"])
+
+        response = client.post(
+            "/manuals/chat/api/message",
+            json={"query": "valve lash", "equipment": "3516"},
+            content_type="application/json",
+        )
+        assert response.status_code == 200
 
     def test_list_sessions_empty(self, app, client):
         """Should return empty list when no sessions exist."""

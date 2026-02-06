@@ -3,26 +3,80 @@ Chat Service — Context assembly and conversation management.
 
 Orchestrates the RAG pipeline: query → search → context → LLM → response.
 Manages conversation history and token budgets.
+
+Two-phase context:
+  Phase 1 (triage): search_manuals() snippets → LLM groups & suggests directions
+  Phase 2 (follow-up): re-search with refined query → LLM narrows focus
 """
 
 import logging
+import re
 from collections.abc import Iterator
 from typing import Optional
 
 from services.llm_service import LLMService, LLMServiceError, get_llm_service
 from services.manuals_service import get_context_for_llm, search_manuals
-from prompts.manuals_assistant import format_context, build_messages
+from prompts.manuals_assistant import format_search_results, build_messages
 
 logger = logging.getLogger(__name__)
 
-# Token budget: Sonnet 4.5 has 200k context, but we stay lean
+# Token budget: Sonnet has 200k context, but we stay lean
 MAX_CONTEXT_TOKENS = 4000  # RAG excerpts budget
 MAX_HISTORY_TOKENS = 3000  # Conversation history budget
 MAX_TURNS = 10             # Max conversation turns kept
 
+# Equipment detection: case-insensitive match for known engine models
+_EQUIPMENT_PATTERN = re.compile(r"\b(3516|C18|C32|C4\.4)\b", re.IGNORECASE)
+
+# Canonical equipment names (normalize case from regex matches)
+_EQUIPMENT_CANONICAL = {
+    "3516": "3516",
+    "c18": "C18",
+    "c32": "C32",
+    "c4.4": "C4.4",
+}
+
 
 class ChatServiceError(Exception):
     """Raised when the chat service encounters an error."""
+
+
+def detect_equipment(query: str) -> Optional[str]:
+    """Auto-detect equipment model from query text.
+
+    Scans for known CAT engine identifiers. Returns the first match
+    normalized to canonical form, or None if no equipment found.
+
+    Known values: 3516, C18, C32, C4.4
+
+    Args:
+        query: User's question text
+
+    Returns:
+        Canonical equipment string or None
+    """
+    match = _EQUIPMENT_PATTERN.search(query)
+    if match:
+        return _EQUIPMENT_CANONICAL.get(match.group(1).lower(), match.group(1))
+    return None
+
+
+def _resolve_equipment(
+    explicit: Optional[str],
+    query: str,
+) -> Optional[str]:
+    """Resolve equipment filter: explicit dropdown wins, then auto-detect.
+
+    Args:
+        explicit: Equipment value from UI dropdown (None or empty = not set)
+        query: User's query text for auto-detection fallback
+
+    Returns:
+        Equipment filter string or None
+    """
+    if explicit:
+        return explicit
+    return detect_equipment(query)
 
 
 def get_chat_response(
@@ -37,7 +91,7 @@ def get_chat_response(
     Args:
         query: User's question
         history: Previous conversation turns
-        equipment: Optional equipment filter for RAG search
+        equipment: Optional equipment filter from UI dropdown
         max_context_tokens: Token budget for RAG context
         max_turns: Max history turns to include
 
@@ -51,12 +105,19 @@ def get_chat_response(
     if not llm:
         raise ChatServiceError("Chat assistant is not configured (missing API key)")
 
+    # Resolve equipment: dropdown wins, then auto-detect from query
+    resolved_equipment = _resolve_equipment(equipment, query)
+
     # Trim history to max turns
     trimmed_history = _trim_history(history, max_turns, llm)
 
-    # Retrieve RAG context
-    context_results = get_context_for_llm(query, equipment=equipment, limit=5)
-    context_str = format_context(context_results)
+    # Retrieve RAG context via search_manuals() (single search path)
+    context_results = get_context_for_llm(
+        query, equipment=resolved_equipment, limit=10
+    )
+    context_str = format_search_results(
+        context_results, query, equipment=resolved_equipment
+    )
 
     # Trim context if over budget
     context_str = _trim_to_token_budget(context_str, max_context_tokens, llm)
@@ -92,10 +153,18 @@ def stream_chat_response(
     if not llm:
         raise ChatServiceError("Chat assistant is not configured (missing API key)")
 
+    # Resolve equipment: dropdown wins, then auto-detect from query
+    resolved_equipment = _resolve_equipment(equipment, query)
+
     trimmed_history = _trim_history(history, max_turns, llm)
 
-    context_results = get_context_for_llm(query, equipment=equipment, limit=5)
-    context_str = format_context(context_results)
+    # Retrieve RAG context via search_manuals() (single search path)
+    context_results = get_context_for_llm(
+        query, equipment=resolved_equipment, limit=10
+    )
+    context_str = format_search_results(
+        context_results, query, equipment=resolved_equipment
+    )
     context_str = _trim_to_token_budget(context_str, max_context_tokens, llm)
 
     system, messages = build_messages(context_str, trimmed_history, query)

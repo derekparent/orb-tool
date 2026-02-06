@@ -221,6 +221,34 @@
     border-top: 1px solid var(--border-default);
 }
 
+.chat-filter-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.chat-filter-row label {
+    font-size: 0.8rem;
+    color: var(--text-muted, #484f58);
+    white-space: nowrap;
+}
+
+.equipment-filter {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 0.85rem;
+    background: var(--bg-input, #0d1117);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.equipment-filter:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
 .chat-input-row {
     display: flex;
     gap: var(--space-sm);
@@ -387,6 +415,16 @@
     </div>
 
     <div class="chat-input-area">
+        <div class="chat-filter-row">
+            <label for="equipment-filter">Engine:</label>
+            <select id="equipment-filter" class="equipment-filter">
+                <option value="">All Engines</option>
+                <option value="3516">3516</option>
+                <option value="C18">C18</option>
+                <option value="C32">C32</option>
+                <option value="C4.4">C4.4</option>
+            </select>
+        </div>
         <div class="chat-input-row">
             <textarea
                 id="chat-input"
@@ -418,6 +456,7 @@
     var statusEl = document.getElementById('chat-status');
     var emptyState = document.getElementById('empty-state');
 
+    var equipmentEl = document.getElementById('equipment-filter');
     var sessionId = null;
     var isStreaming = false;
 
@@ -584,7 +623,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
             },
-            body: JSON.stringify({ query: query, session_id: sessionId })
+            body: JSON.stringify({ query: query, session_id: sessionId, equipment: equipmentEl.value || null })
         }).then(function(response) {
             if (!response.ok) throw new Error('Request failed');
             var reader = response.body.getReader();
