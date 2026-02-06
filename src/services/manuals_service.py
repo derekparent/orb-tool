@@ -614,6 +614,94 @@ def search_manuals(
 
 
 # =============================================================================
+# LLM Context Functions
+# =============================================================================
+
+def get_context_for_llm(
+    query: str,
+    equipment: Optional[str] = None,
+    limit: int = 5,
+) -> list[dict]:
+    """
+    Retrieve structured manual context for the LLM assistant.
+
+    Returns top search results with full page content (not snippets)
+    formatted for RAG context injection.
+
+    Args:
+        query: User's question
+        equipment: Optional equipment filter
+        limit: Max excerpts to return
+
+    Returns:
+        List of dicts with: content, filename, page_num, equipment, doc_type, authority
+    """
+    conn = load_manuals_database()
+    if not conn:
+        return []
+
+    try:
+        cursor = conn.cursor()
+        fts_query = prepare_search_query(query)
+
+        where_parts = []
+        params = []
+
+        if equipment:
+            where_parts.append("p.equipment = ?")
+            params.append(equipment)
+
+        where_clause = " AND ".join(where_parts) if where_parts else "1=1"
+
+        sql = f"""
+            SELECT
+                p.filepath,
+                p.filename,
+                p.equipment,
+                p.doc_type,
+                p.page_num,
+                p.content,
+                bm25(pages_fts) as score
+            FROM pages_fts
+            JOIN pages p ON pages_fts.rowid = p.id
+            WHERE pages_fts MATCH ?
+            AND {where_clause}
+            ORDER BY bm25(pages_fts)
+            LIMIT ?
+        """
+        params = [fts_query] + params + [limit * 2]
+
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+
+        _init_authority_table(conn)
+
+        results = []
+        for row in rows:
+            authority = _get_authority_for_filepath(conn, row["filepath"])
+            results.append({
+                "content": row["content"].strip(),
+                "filename": row["filename"],
+                "page_num": row["page_num"],
+                "equipment": row["equipment"],
+                "doc_type": row["doc_type"],
+                "authority": authority,
+                "score": abs(row["score"]),
+            })
+
+        # Sort by authority (primary first) then by score
+        authority_order = {"primary": 0, "secondary": 1, "unset": 2, "mention": 3}
+        results.sort(key=lambda r: (authority_order.get(r["authority"], 2), r["score"]))
+
+        return results[:limit]
+
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+
+# =============================================================================
 # Cards Functions
 # =============================================================================
 

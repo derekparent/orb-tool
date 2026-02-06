@@ -25,6 +25,9 @@ reportlab==4.2.5
 # OCR / Google Cloud Vision
 google-cloud-vision==3.8.1
 
+# LLM
+anthropic>=0.39.0
+
 # Production Server
 gunicorn==23.0.0
 

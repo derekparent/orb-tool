@@ -1,0 +1,703 @@
+{% extends "base.html" %}
+
+{% block title %}Ask the Manuals - Engine Room{% endblock %}
+
+{% block head %}
+<style>
+.chat-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 60px);
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+    flex-shrink: 0;
+}
+
+.chat-header h1 {
+    font-size: 1.25rem;
+    color: var(--accent-primary);
+    margin: 0;
+}
+
+.chat-header-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.btn-sm {
+    padding: var(--space-xs) var(--space-md);
+    font-size: 0.8rem;
+    background: var(--bg-elevated, #21262d);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-sm:hover {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.btn-back {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-sm) 0;
+    scroll-behavior: smooth;
+}
+
+.message {
+    margin-bottom: var(--space-lg);
+    animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message-user {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.message-user .message-bubble {
+    background: var(--accent-primary);
+    color: var(--bg-dark);
+    border-radius: var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-md);
+    max-width: 80%;
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.message-assistant .message-bubble {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md) var(--radius-md) var(--radius-md) var(--radius-sm);
+    max-width: 90%;
+    padding: var(--space-md);
+    font-size: 0.95rem;
+    line-height: 1.7;
+}
+
+.message-assistant .message-bubble h1,
+.message-assistant .message-bubble h2,
+.message-assistant .message-bubble h3 {
+    color: var(--accent-primary);
+    margin: var(--space-md) 0 var(--space-sm) 0;
+    font-size: 1rem;
+}
+
+.message-assistant .message-bubble h1:first-child,
+.message-assistant .message-bubble h2:first-child,
+.message-assistant .message-bubble h3:first-child {
+    margin-top: 0;
+}
+
+.message-assistant .message-bubble p {
+    margin: 0 0 var(--space-sm) 0;
+}
+
+.message-assistant .message-bubble p:last-child {
+    margin-bottom: 0;
+}
+
+.message-assistant .message-bubble ol,
+.message-assistant .message-bubble ul {
+    padding-left: 1.5em;
+    margin: var(--space-sm) 0;
+}
+
+.message-assistant .message-bubble li {
+    margin-bottom: var(--space-xs);
+}
+
+.message-assistant .message-bubble code {
+    background: rgba(255,255,255,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+}
+
+.message-assistant .message-bubble strong {
+    color: var(--accent-primary);
+}
+
+.citation {
+    color: var(--accent-primary);
+    font-weight: 500;
+    font-size: 0.85em;
+}
+
+.thinking {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    color: var(--text-muted, #484f58);
+    font-size: 0.85rem;
+}
+
+.thinking-dots span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--text-muted, #484f58);
+    border-radius: 50%;
+    animation: dot-pulse 1.4s ease-in-out infinite;
+    margin-right: 3px;
+}
+
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dot-pulse {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+}
+
+.error-message {
+    background: rgba(248, 81, 73, 0.1);
+    border: 1px solid var(--accent-danger, #f85149);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    color: var(--accent-danger, #f85149);
+    font-size: 0.9rem;
+    margin-bottom: var(--space-md);
+}
+
+.fallback-results {
+    margin-top: var(--space-md);
+}
+
+.fallback-results h3 {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+}
+
+.fallback-result {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-sm);
+    font-size: 0.85rem;
+}
+
+.fallback-result .source {
+    color: var(--accent-primary);
+    font-weight: 500;
+    font-size: 0.8rem;
+}
+
+.fallback-result .snippet-text {
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.chat-input-area {
+    flex-shrink: 0;
+    padding: var(--space-md) 0 var(--space-sm) 0;
+    border-top: 1px solid var(--border-default);
+}
+
+.chat-input-row {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.chat-input {
+    flex: 1;
+    padding: var(--space-md);
+    font-size: 1rem;
+    background: var(--bg-input, #0d1117);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    resize: none;
+    min-height: 44px;
+    max-height: 120px;
+    font-family: inherit;
+    line-height: 1.4;
+}
+
+.chat-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.chat-input::placeholder {
+    color: var(--text-muted, #484f58);
+}
+
+.btn-send {
+    padding: var(--space-md) var(--space-lg);
+    font-size: 1rem;
+    font-weight: 600;
+    background: var(--accent-primary);
+    color: var(--bg-dark);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background 0.2s;
+    align-self: flex-end;
+}
+
+.btn-send:hover {
+    background: var(--accent-primary-dim);
+}
+
+.btn-send:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.chat-status {
+    font-size: 0.75rem;
+    color: var(--text-muted, #484f58);
+    text-align: center;
+    padding: var(--space-xs) 0;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+    color: var(--text-secondary);
+    padding: var(--space-xl);
+}
+
+.empty-state h2 {
+    color: var(--accent-primary);
+    margin-bottom: var(--space-md);
+    font-size: 1.2rem;
+}
+
+.empty-state p {
+    max-width: 400px;
+    line-height: 1.6;
+    font-size: 0.9rem;
+}
+
+.example-queries {
+    margin-top: var(--space-lg);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    justify-content: center;
+}
+
+.example-query {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.example-query:hover {
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+
+.unavailable {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-secondary);
+}
+
+.unavailable h2 {
+    color: var(--accent-primary);
+    margin-bottom: var(--space-md);
+}
+
+@media (max-width: 600px) {
+    .chat-container {
+        padding: var(--space-sm);
+    }
+
+    .message-user .message-bubble,
+    .message-assistant .message-bubble {
+        max-width: 95%;
+    }
+
+    .example-queries {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <div class="chat-header">
+        <h1>Ask the Manuals</h1>
+        <div class="chat-header-actions">
+            <a href="{{ url_for('manuals.search') }}" class="btn-sm btn-back">Search</a>
+            <button class="btn-sm" onclick="newChat()" title="New conversation">New Chat</button>
+        </div>
+    </div>
+
+    {% if not llm_available %}
+    <div class="unavailable">
+        <h2>Assistant Not Available</h2>
+        <p>The AI assistant requires an Anthropic API key. Set ANTHROPIC_API_KEY in your environment.</p>
+        <p style="margin-top: var(--space-md);">
+            <a href="{{ url_for('manuals.search') }}" class="btn-sm">Use Manual Search Instead</a>
+        </p>
+    </div>
+    {% else %}
+
+    <div id="messages" class="messages">
+        <div id="empty-state" class="empty-state">
+            <h2>Ask about CAT engine manuals</h2>
+            <p>I can help you find procedures, troubleshoot problems, and look up specs from the indexed technical manuals.</p>
+            <div class="example-queries">
+                <div class="example-query" onclick="askExample(this)">3516 fuel rack actuator troubleshooting</div>
+                <div class="example-query" onclick="askExample(this)">C18 valve lash adjustment procedure</div>
+                <div class="example-query" onclick="askExample(this)">3516 jacket water pump torque specs</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-input-area">
+        <div class="chat-input-row">
+            <textarea
+                id="chat-input"
+                class="chat-input"
+                placeholder="Ask about engine manuals..."
+                rows="1"
+                autofocus
+            ></textarea>
+            <button id="btn-send" class="btn-send" onclick="sendMessage()">Send</button>
+        </div>
+        <div id="chat-status" class="chat-status"></div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if llm_available %}
+<script>
+/* Chat UI — all DOM construction uses safe methods (createElement/textContent).
+   No innerHTML with user or LLM content. */
+(function() {
+    'use strict';
+
+    var messagesEl = document.getElementById('messages');
+    var inputEl = document.getElementById('chat-input');
+    var sendBtn = document.getElementById('btn-send');
+    var statusEl = document.getElementById('chat-status');
+    var emptyState = document.getElementById('empty-state');
+
+    var sessionId = null;
+    var isStreaming = false;
+
+    // Auto-resize textarea
+    inputEl.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // Send on Enter (Shift+Enter for newline)
+    inputEl.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    /* ── Safe markdown rendering via DOM APIs (no innerHTML) ──────── */
+
+    function renderMarkdownSafe(text) {
+        var frag = document.createDocumentFragment();
+        var lines = text.split('\n');
+        var currentList = null;
+        var currentListType = null;
+
+        function flushList() {
+            if (currentList) {
+                frag.appendChild(currentList);
+                currentList = null;
+                currentListType = null;
+            }
+        }
+
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+
+            // Headers
+            var h3 = line.match(/^### (.+)$/);
+            var h2 = !h3 && line.match(/^## (.+)$/);
+            var h1 = !h3 && !h2 && line.match(/^# (.+)$/);
+            if (h1 || h2 || h3) {
+                flushList();
+                var hMatch = h3 || h2 || h1;
+                var tag = h3 ? 'h3' : (h2 ? 'h2' : 'h1');
+                var heading = document.createElement(tag);
+                heading.appendChild(formatInline(hMatch[1]));
+                frag.appendChild(heading);
+                continue;
+            }
+
+            // Ordered list
+            var olMatch = line.match(/^(\d+)\.\s+(.+)$/);
+            if (olMatch) {
+                if (currentListType !== 'ol') { flushList(); currentList = document.createElement('ol'); currentListType = 'ol'; }
+                var li = document.createElement('li');
+                li.appendChild(formatInline(olMatch[2]));
+                currentList.appendChild(li);
+                continue;
+            }
+
+            // Unordered list
+            var ulMatch = line.match(/^[-*]\s+(.+)$/);
+            if (ulMatch) {
+                if (currentListType !== 'ul') { flushList(); currentList = document.createElement('ul'); currentListType = 'ul'; }
+                var uli = document.createElement('li');
+                uli.appendChild(formatInline(ulMatch[1]));
+                currentList.appendChild(uli);
+                continue;
+            }
+
+            // Empty line
+            if (!line.trim()) { flushList(); continue; }
+
+            // Paragraph
+            flushList();
+            var p = document.createElement('p');
+            p.appendChild(formatInline(line));
+            frag.appendChild(p);
+        }
+
+        flushList();
+        return frag;
+    }
+
+    // Inline formatting: **bold**, `code`, [citation, p.XX]
+    function formatInline(text) {
+        var frag = document.createDocumentFragment();
+        var re = /(\*\*(.+?)\*\*)|(`([^`]+)`)|(\[([^\]]+,\s*p\.\s*\d+)\])/g;
+        var last = 0;
+        var m;
+
+        while ((m = re.exec(text)) !== null) {
+            if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+
+            if (m[1]) {
+                var strong = document.createElement('strong');
+                strong.textContent = m[2];
+                frag.appendChild(strong);
+            } else if (m[3]) {
+                var code = document.createElement('code');
+                code.textContent = m[4];
+                frag.appendChild(code);
+            } else if (m[5]) {
+                var cite = document.createElement('span');
+                cite.className = 'citation';
+                cite.textContent = '[' + m[6] + ']';
+                frag.appendChild(cite);
+            }
+            last = re.lastIndex;
+        }
+
+        if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+        return frag;
+    }
+
+    /* ── Chat logic ──────────────────────────────────────────────── */
+
+    window.sendMessage = function() {
+        var query = inputEl.value.trim();
+        if (!query || isStreaming) return;
+
+        if (emptyState) emptyState.style.display = 'none';
+
+        // User message
+        var userDiv = document.createElement('div');
+        userDiv.className = 'message message-user';
+        var userBubble = document.createElement('div');
+        userBubble.className = 'message-bubble';
+        userBubble.textContent = query;
+        userDiv.appendChild(userBubble);
+        messagesEl.appendChild(userDiv);
+
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+
+        // Thinking indicator
+        var thinkingEl = document.createElement('div');
+        thinkingEl.className = 'thinking';
+        var dots = document.createElement('div');
+        dots.className = 'thinking-dots';
+        for (var d = 0; d < 3; d++) dots.appendChild(document.createElement('span'));
+        thinkingEl.appendChild(dots);
+        thinkingEl.appendChild(document.createTextNode(' Searching manuals...'));
+        messagesEl.appendChild(thinkingEl);
+        scrollToBottom();
+
+        isStreaming = true;
+        sendBtn.disabled = true;
+        statusEl.textContent = '';
+
+        // Assistant bubble
+        var aDiv = document.createElement('div');
+        aDiv.className = 'message message-assistant';
+        var aBubble = document.createElement('div');
+        aBubble.className = 'message-bubble';
+        aDiv.appendChild(aBubble);
+        messagesEl.appendChild(aDiv);
+
+        var fullText = '';
+
+        fetch('{{ url_for("chat.send_message") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ query: query, session_id: sessionId })
+        }).then(function(response) {
+            if (!response.ok) throw new Error('Request failed');
+            var reader = response.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+
+            function read() {
+                reader.read().then(function(result) {
+                    if (result.done) { finishStreaming(); return; }
+                    buffer += decoder.decode(result.value, { stream: true });
+                    var lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    for (var li = 0; li < lines.length; li++) {
+                        if (lines[li].indexOf('data: ') === 0) {
+                            try { handleSSE(JSON.parse(lines[li].slice(6))); } catch(e) {}
+                        }
+                    }
+                    read();
+                }).catch(function() { finishStreaming(); });
+            }
+
+            function handleSSE(evt) {
+                if (evt.type === 'token') {
+                    if (thinkingEl.parentElement) thinkingEl.remove();
+                    fullText += evt.content;
+                    while (aBubble.firstChild) aBubble.removeChild(aBubble.firstChild);
+                    aBubble.appendChild(renderMarkdownSafe(fullText));
+                    scrollToBottom();
+                } else if (evt.type === 'done') {
+                    sessionId = evt.session_id;
+                    if (thinkingEl.parentElement) thinkingEl.remove();
+                    while (aBubble.firstChild) aBubble.removeChild(aBubble.firstChild);
+                    aBubble.appendChild(renderMarkdownSafe(fullText));
+                    finishStreaming();
+                } else if (evt.type === 'error') {
+                    if (thinkingEl.parentElement) thinkingEl.remove();
+                    if (!fullText.trim()) aDiv.remove();
+                    var errDiv = document.createElement('div');
+                    errDiv.className = 'error-message';
+                    errDiv.textContent = evt.message;
+                    messagesEl.appendChild(errDiv);
+                    scrollToBottom();
+                } else if (evt.type === 'fallback' && evt.results && evt.results.length) {
+                    var fb = document.createElement('div');
+                    fb.className = 'fallback-results';
+                    var fbH = document.createElement('h3');
+                    fbH.textContent = 'Search results from manuals:';
+                    fb.appendChild(fbH);
+                    evt.results.forEach(function(r) {
+                        var card = document.createElement('div');
+                        card.className = 'fallback-result';
+                        var src = document.createElement('div');
+                        src.className = 'source';
+                        src.textContent = r.filename + ', Page ' + r.page_num + ' (' + r.equipment + ')';
+                        card.appendChild(src);
+                        var snip = document.createElement('div');
+                        snip.className = 'snippet-text';
+                        snip.textContent = (r.snippet || '').replace(/<\/?mark>/g, '');
+                        card.appendChild(snip);
+                        fb.appendChild(card);
+                    });
+                    messagesEl.appendChild(fb);
+                    scrollToBottom();
+                }
+            }
+
+            read();
+        }).catch(function() {
+            if (thinkingEl.parentElement) thinkingEl.remove();
+            var errDiv = document.createElement('div');
+            errDiv.className = 'error-message';
+            errDiv.textContent = 'Failed to connect to assistant. Try again.';
+            messagesEl.appendChild(errDiv);
+            finishStreaming();
+        });
+    };
+
+    function finishStreaming() {
+        isStreaming = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
+    }
+
+    function scrollToBottom() {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function getCSRFToken() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) return meta.getAttribute('content');
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var c = cookies[i].trim();
+            if (c.indexOf('csrf_token=') === 0) return c.substring(11);
+        }
+        return '';
+    }
+
+    window.newChat = function() {
+        sessionId = null;
+        while (messagesEl.firstChild) messagesEl.removeChild(messagesEl.firstChild);
+        if (emptyState) {
+            messagesEl.appendChild(emptyState);
+            emptyState.style.display = '';
+        }
+        inputEl.focus();
+    };
+
+    window.askExample = function(el) {
+        inputEl.value = el.textContent;
+        sendMessage();
+    };
+})();
+</script>
+{% endif %}
+{% endblock %}
