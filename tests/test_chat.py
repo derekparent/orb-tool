@@ -336,6 +336,74 @@ class TestResolveEquipment:
 
 
 # ─────────────────────────────────────────────────────────────────
+# Unit Tests: _extract_search_query (conversational → FTS5)
+# ─────────────────────────────────────────────────────────────────
+
+class TestExtractSearchQuery:
+    """Test conversational query → FTS5 keyword extraction.
+
+    The chat input naturally elicits sentences; FTS5 needs keywords.
+    Stop words are stripped and OR is used for >3 content words.
+    """
+
+    def test_short_keyword_query_unchanged(self):
+        from services.chat_service import _extract_search_query
+
+        assert _extract_search_query("valve lash") == "valve lash"
+
+    def test_three_keywords_use_and(self):
+        from services.chat_service import _extract_search_query
+
+        # ≤3 content words → implicit AND (precise matching)
+        assert _extract_search_query("3516 fuel rack") == "3516 fuel rack"
+
+    def test_conversational_query_strips_stops_uses_or(self):
+        from services.chat_service import _extract_search_query
+
+        result = _extract_search_query(
+            "What is the valve lash adjustment procedure for the 3516?"
+        )
+        assert result == "valve OR lash OR adjustment OR procedure OR 3516"
+
+    def test_how_question_strips_stops(self):
+        from services.chat_service import _extract_search_query
+
+        result = _extract_search_query(
+            "How do I check jacket water pressure on C18?"
+        )
+        assert result == "check OR jacket OR water OR pressure OR C18"
+
+    def test_preserves_model_numbers(self):
+        from services.chat_service import _extract_search_query
+
+        result = _extract_search_query("Explain the cooling system for C4.4")
+        assert "C4.4" in result
+
+    def test_fallback_when_all_stop_words(self):
+        from services.chat_service import _extract_search_query
+
+        # If query is ALL stop words, return original
+        result = _extract_search_query("what is the")
+        assert result == "what is the"
+
+    def test_single_word_passes_through(self):
+        from services.chat_service import _extract_search_query
+
+        assert _extract_search_query("turbo") == "turbo"
+
+    def test_long_keyword_query_uses_or(self):
+        from services.chat_service import _extract_search_query
+
+        # Already keyword-style but >3 words → OR for broad recall
+        result = _extract_search_query(
+            "3516 fuel rack actuator troubleshooting"
+        )
+        assert "OR" in result
+        assert "3516" in result
+        assert "fuel" in result
+
+
+# ─────────────────────────────────────────────────────────────────
 # Unit Tests: get_context_for_llm wraps search_manuals
 # ─────────────────────────────────────────────────────────────────
 

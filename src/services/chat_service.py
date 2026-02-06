@@ -37,8 +37,87 @@ _EQUIPMENT_CANONICAL = {
 }
 
 
+# Stop words to strip from conversational queries before FTS5 search.
+# FTS5 uses implicit AND, so "What is the valve lash procedure" requires
+# ALL words including "What", "is", "the" — returning 0 results.
+# Stripping these converts conversational input to keyword queries.
+_STOP_WORDS = frozenset({
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+    "what", "which", "who", "whom", "where", "when", "why", "how",
+    "do", "does", "did", "have", "has", "had", "having",
+    "can", "could", "would", "should", "shall", "will", "may", "might",
+    "i", "me", "my", "we", "our", "you", "your", "it", "its",
+    "this", "that", "these", "those",
+    "of", "in", "on", "at", "to", "for", "with", "from", "by", "about",
+    "and", "or", "but", "not", "if", "then", "so",
+    "tell", "show", "find", "get", "give", "explain", "describe",
+    "need", "want", "look", "help",
+})
+
+# Maximum content words before switching from implicit AND to explicit OR.
+# FTS5 implicit AND requires ALL terms on one page. With >3 content words
+# that's too restrictive for OCR'd manual text. OR gives broad recall and
+# BM25 naturally ranks pages with more matching terms higher.
+_MAX_AND_TERMS = 3
+
+
 class ChatServiceError(Exception):
     """Raised when the chat service encounters an error."""
+
+
+def _extract_search_query(query: str) -> str:
+    """Convert a conversational query into FTS5-friendly search terms.
+
+    Pipeline:
+      1. Strip punctuation and stop words
+      2. If ≤3 content words remain → implicit AND (precise)
+      3. If >3 content words remain → explicit OR (broad recall)
+
+    BM25 ranking naturally scores pages with more matching terms higher,
+    so OR still produces well-ordered results. The LLM triages after.
+
+    Note: When OR syntax is present, prepare_search_query() in
+    manuals_service.py skips its own expansion (acronyms, synonyms).
+    That's acceptable — broad OR recall is sufficient for chat.
+
+    Examples:
+        "valve lash"
+        → "valve lash"  (≤3 terms, implicit AND)
+
+        "What is the valve lash adjustment procedure for the 3516?"
+        → "valve OR lash OR adjustment OR procedure OR 3516"  (>3 terms, OR)
+
+        "How do I check jacket water pressure on C18?"
+        → "check OR jacket OR water OR pressure OR C18"  (>3 terms, OR)
+
+        "3516 fuel rack"
+        → "3516 fuel rack"  (≤3 terms, implicit AND)
+
+    Args:
+        query: Natural language question from the user
+
+    Returns:
+        FTS5 query string (implicit AND for short, explicit OR for long)
+    """
+    # Remove question marks and trailing punctuation
+    cleaned = query.strip().rstrip("?!.")
+
+    # Tokenize preserving model numbers like C4.4, C18, 3516
+    tokens = re.findall(r"[A-Za-z0-9]+(?:[./-][A-Za-z0-9]+)*", cleaned)
+
+    # Filter stop words (case-insensitive) but keep technical terms
+    keywords = [t for t in tokens if t.lower() not in _STOP_WORDS]
+
+    if not keywords:
+        # Fallback: if everything was stripped, use original
+        return query
+
+    if len(keywords) <= _MAX_AND_TERMS:
+        # Short query: implicit AND is fine (precise matching)
+        return " ".join(keywords)
+
+    # Long query: use OR for broad recall, let BM25 rank by relevance
+    return " OR ".join(keywords)
 
 
 def detect_equipment(query: str) -> Optional[str]:
@@ -111,9 +190,12 @@ def get_chat_response(
     # Trim history to max turns
     trimmed_history = _trim_history(history, max_turns, llm)
 
+    # Extract keywords for FTS5 search (strip stop words from conversational input)
+    search_query = _extract_search_query(query)
+
     # Retrieve RAG context via search_manuals() (single search path)
     context_results = get_context_for_llm(
-        query, equipment=resolved_equipment, limit=10
+        search_query, equipment=resolved_equipment, limit=10
     )
     context_str = format_search_results(
         context_results, query, equipment=resolved_equipment
@@ -122,7 +204,7 @@ def get_chat_response(
     # Trim context if over budget
     context_str = _trim_to_token_budget(context_str, max_context_tokens, llm)
 
-    # Build messages
+    # Build messages — original query goes to LLM, not the keyword extraction
     system, messages = build_messages(context_str, trimmed_history, query)
 
     try:
@@ -158,15 +240,19 @@ def stream_chat_response(
 
     trimmed_history = _trim_history(history, max_turns, llm)
 
+    # Extract keywords for FTS5 search (strip stop words from conversational input)
+    search_query = _extract_search_query(query)
+
     # Retrieve RAG context via search_manuals() (single search path)
     context_results = get_context_for_llm(
-        query, equipment=resolved_equipment, limit=10
+        search_query, equipment=resolved_equipment, limit=10
     )
     context_str = format_search_results(
         context_results, query, equipment=resolved_equipment
     )
     context_str = _trim_to_token_budget(context_str, max_context_tokens, llm)
 
+    # Build messages — original query goes to LLM, not the keyword extraction
     system, messages = build_messages(context_str, trimmed_history, query)
 
     try:
@@ -181,7 +267,8 @@ def get_fallback_results(query: str, equipment: Optional[str] = None) -> list[di
 
     Returns results formatted for display in the chat UI.
     """
-    results = search_manuals(query, equipment=equipment, limit=10, boost_primary=True)
+    search_query = _extract_search_query(query)
+    results = search_manuals(search_query, equipment=equipment, limit=10, boost_primary=True)
     return [
         {
             "filename": r["filename"],
