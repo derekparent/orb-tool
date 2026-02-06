@@ -614,6 +614,101 @@ def search_manuals(
 
 
 # =============================================================================
+# LLM Context Functions
+# =============================================================================
+
+def get_context_for_llm(
+    query: str,
+    equipment: Optional[str] = None,
+    limit: int = 10,
+) -> list[dict]:
+    """
+    Retrieve search results for LLM context via search_manuals().
+
+    Single search path: both the search UI and LLM use the same
+    ranking (authority boost, phrase boost, tag-aware boost).
+    Returns summaries (snippets) for triage, not full page content.
+
+    Args:
+        query: User's question
+        equipment: Optional equipment filter
+        limit: Max results to return
+
+    Returns:
+        List of dicts with: filename, page_num, equipment, doc_type,
+        snippet, authority, score
+    """
+    results = search_manuals(
+        query, equipment=equipment, boost_primary=True, limit=limit
+    )
+    return [
+        {
+            "filename": r["filename"],
+            "page_num": r["page_num"],
+            "equipment": r["equipment"],
+            "doc_type": r["doc_type"],
+            "snippet": r["snippet"],
+            "authority": r["authority"],
+            "score": r["score"],
+        }
+        for r in results
+    ]
+
+
+def get_pages_content(
+    filename: str,
+    page_nums: list[int],
+) -> list[dict]:
+    """
+    Fetch full page content by filename and page numbers.
+
+    Used for deep-dive phase: after the LLM triages search results
+    and the user picks specific pages to examine.
+
+    Args:
+        filename: Document filename (e.g. 'kenr5403-00_3516-testing-&-adjusting')
+        page_nums: List of page numbers to fetch
+
+    Returns:
+        List of dicts with: content, filename, page_num, equipment, doc_type
+    """
+    if not page_nums:
+        return []
+
+    conn = load_manuals_database()
+    if not conn:
+        return []
+
+    try:
+        cursor = conn.cursor()
+        placeholders = ",".join("?" * len(page_nums))
+        cursor.execute(
+            f"""
+            SELECT filepath, filename, equipment, doc_type, page_num, content
+            FROM pages
+            WHERE filename = ? AND page_num IN ({placeholders})
+            ORDER BY page_num
+            """,
+            [filename] + list(page_nums),
+        )
+
+        return [
+            {
+                "content": row["content"].strip(),
+                "filename": row["filename"],
+                "page_num": row["page_num"],
+                "equipment": row["equipment"],
+                "doc_type": row["doc_type"],
+            }
+            for row in cursor.fetchall()
+        ]
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+
+# =============================================================================
 # Cards Functions
 # =============================================================================
 

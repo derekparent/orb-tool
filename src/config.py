@@ -46,6 +46,13 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
 
+    # LLM / Chat Assistant
+    ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+    ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
+    CHAT_MAX_TURNS = int(os.environ.get("CHAT_MAX_TURNS", "10"))
+    CHAT_TIMEOUT = int(os.environ.get("CHAT_TIMEOUT", "30"))
+    CHAT_MAX_CONTEXT_TOKENS = int(os.environ.get("CHAT_MAX_CONTEXT_TOKENS", "4000"))
+
     # Logging configuration
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
     LOG_DIR = BASE_DIR / "logs"
