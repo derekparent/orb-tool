@@ -1,5 +1,6 @@
 """Database models for Oil Record Book Tool."""
 
+import json
 from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -506,4 +507,40 @@ class HitchRecord(db.Model):
             "is_start": self.is_start,
             "end_date": self.end_date.isoformat() if self.end_date else None,
             "created_at": self.created_at.isoformat(),
+        }
+
+
+class ChatSession(db.Model):
+    """LLM chat conversation session."""
+
+    __tablename__ = "chat_sessions"
+
+    id: int = db.Column(db.Integer, primary_key=True)
+    user_id: int = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    messages: str = db.Column(db.Text, nullable=False, default="[]")
+    created_at: datetime = db.Column(
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: datetime = db.Column(
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC)
+    )
+
+    user = db.relationship("User")
+
+    def get_messages(self) -> list[dict]:
+        """Deserialize messages JSON."""
+        return json.loads(self.messages) if self.messages else []
+
+    def set_messages(self, msgs: list[dict]) -> None:
+        """Serialize messages to JSON."""
+        self.messages = json.dumps(msgs)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "messages": self.get_messages(),
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
         }
