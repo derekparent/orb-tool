@@ -1,7 +1,7 @@
 # Cursor Agent Prompt: Complete End of Hitch Form with OCR
 
 ## Context
-Flask app at `/Users/dp/Projects/oil_record_book_tool/`. We need to:
+Flask app at `/Users/dp/Projects/orb-tool/`. We need to:
 1. Expand the data model to capture ALL fields from the End of Hitch Sounding Form
 2. Add Google Cloud Vision OCR to auto-fill the form from a photo
 3. Enable editing and printing the form at end of hitch

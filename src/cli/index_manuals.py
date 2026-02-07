@@ -4,7 +4,7 @@ CLI command to re-index CAT engine PDFs for manuals search.
 
 Usage:
     python -m cli.index_manuals
-    python -m cli.index_manuals --pdf-dir /path/to/engine_tool
+    python -m src.cli.index_manuals --pdf-dir /path/to/equipment-folders
 """
 
 import sys

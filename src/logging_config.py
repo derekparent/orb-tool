@@ -165,7 +165,7 @@ class AuditLogger:
 
 
 def setup_logging(
-    app_name: str = "oil_record_book",
+    app_name: str = "orb_tool",
     log_level: str | None = None,
     log_dir: str | Path | None = None,
     json_format: bool = True,
@@ -282,11 +282,11 @@ def setup_logging(
     return app_logger, AuditLogger(audit_logger)
 
 
-def get_logger(name: str = "oil_record_book") -> logging.Logger:
+def get_logger(name: str = "orb_tool") -> logging.Logger:
     """Get a logger instance."""
     return logging.getLogger(name)
 
 
 def get_audit_logger() -> AuditLogger:
     """Get the audit logger instance."""
-    return AuditLogger(logging.getLogger("oil_record_book.audit"))
+    return AuditLogger(logging.getLogger("orb_tool.audit"))

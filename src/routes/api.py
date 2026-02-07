@@ -19,7 +19,7 @@ from logging_config import get_logger, get_audit_logger
 UTC = timezone.utc
 
 api_bp = Blueprint("api", __name__)
-logger = get_logger("oil_record_book")
+logger = get_logger("orb_tool")
 
 
 def _get_audit_logger():

@@ -1,6 +1,6 @@
 # Oil Record Book Tool
 
-Live engine room dashboard and fuel management app that auto-generates compliance documentation.
+Live engine room dashboard and fuel management app that auto-generates compliance documentation. Includes CAT engine manuals search and LLM-powered chat assistant (consolidated from engine_tool).
 
 ## The Problem
 
@@ -14,20 +14,25 @@ Maritime engineers manually track fuel consumption, tank soundings, and complian
 - Weekly soundings → Auto-generated ORB entries
 - End of rotation → Print complete handover package
 
-## Key Features (MVP)
+## Key Features
 
-- [ ] End of Hitch Soundings import (baseline)
-- [ ] Daily fuel ticket entry with consumption tracking
-- [ ] Weekly slop tank soundings → Code C and I ORB entries
-- [ ] Live dashboard showing fuel remaining, consumption rate
-- [ ] Handover package generation (forms + Excel for other crew)
+- [x] End of Hitch Soundings import (baseline)
+- [x] Daily fuel ticket entry with consumption tracking
+- [x] Weekly slop tank soundings → Code C and I ORB entries
+- [x] Live dashboard showing fuel remaining, consumption rate
+- [x] Handover package generation (forms + Excel for other crew)
+- [x] Authentication and RBAC (Chief Engineer, Engineer, Read-only)
+- [x] Manuals search: FTS5 search across CAT engine PDFs
+- [x] LLM chat assistant for manuals (Anthropic, RAG-backed)
+- [x] Offline support (localStorage, retry queue)
+- [x] Structured logging and audit trail
 
 ## Tech Stack
 
 - **Backend:** Python/Flask
-- **Database:** SQLite (portable, works offline)
+- **Database:** SQLite (orb.db, engine_search.db for manuals)
 - **Frontend:** Mobile-first responsive HTML/CSS/JS
-- **Deployment:** TBD (Railway or similar)
+- **Deployment:** Docker, gunicorn, health check endpoint
 
 ## Design Constraints
 
@@ -53,6 +58,16 @@ python simple_migration.py upgrade
 # Run
 flask run
 ```
+
+### Manuals Indexing (optional)
+
+To enable manuals search and chat, index PDFs:
+
+```bash
+python -m src.cli.index_manuals --pdf-dir /path/to/equipment-folders
+```
+
+Set `MANUALS_PDF_DIR` and `ANTHROPIC_API_KEY` in `.env` for manuals features.
 
 ## Database Migrations
 
@@ -84,41 +99,39 @@ python simple_migration.py create "Description of changes"
 ## Project Structure
 
 ```
-oil_record_book_tool/
+orb-tool/
 ├── src/
 │   ├── app.py              # Flask app
 │   ├── models.py           # Data models
-│   ├── routes/             # API endpoints
+│   ├── routes/             # API endpoints (api, auth, chat, manuals)
 │   ├── services/           # Business logic
+│   ├── cli/                # index_manuals for PDF indexing
 │   └── config.py           # Configuration
 ├── templates/              # HTML templates
 ├── static/                 # CSS, JS, images
 ├── migrations/             # Database migration files
-│   ├── versions/           # Migration scripts
-│   └── env.py              # Migration environment
-├── scripts/                # Utility scripts
-│   ├── backup_database.py  # Database backup
-│   └── restore_database.py # Database restore
+├── scripts/                # backup_database, restore_database, healthcheck
 ├── tests/
 ├── data/
-│   ├── orb.db              # SQLite database
-│   ├── backups/            # Database backups
-│   └── sounding_tables.json # Tank conversion tables
+│   ├── orb.db              # Main SQLite database
+│   ├── engine_search.db    # Manuals FTS5 index (from indexer)
+│   └── sounding_tables.json
 ├── docs/
 │   ├── DATABASE_MIGRATIONS.md
-│   └── ORB_App_Planning_Document.md
+│   ├── DEPLOYMENT.md
+│   └── Engine_Room_Status_Board_Planning.md
 ├── simple_migration.py     # Migration management
+├── Dockerfile
+├── docker-compose.yml
 ├── requirements.txt
 └── README.md
 ```
 
 ## Documentation
 
-See `docs/ORB_App_Planning_Document.md` for full planning document including:
-- Feature specifications
-- ORB entry formats (Code A, B, C, I)
-- Sounding table conversion requirements
-- Two-crew handover workflow
+- `docs/DATABASE_MIGRATIONS.md` — Migration workflow
+- `docs/DEPLOYMENT.md` — Docker, systemd, backup strategy
+- `docs/Engine_Room_Status_Board_Planning.md` — Feature specs and ORB formats
 
 ---
 

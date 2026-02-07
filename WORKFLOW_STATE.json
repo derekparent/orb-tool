@@ -1,5 +1,5 @@
 {
-  "project": "oil_record_book_tool",
+  "project": "orb-tool",
   "project_path": "/Users/dp/Projects/orb-tool",
   "phase": "deployed",
   "iteration": 2,
@@ -19,22 +19,47 @@
     "logging-infrastructure": {
       "status": "complete",
       "pr": "#4",
-      "files": ["src/logging_config.py", "src/middleware/request_logger.py", "src/app.py", "src/config.py", "src/routes/api.py", "src/routes/auth.py"]
+      "files": [
+        "src/logging_config.py",
+        "src/middleware/request_logger.py",
+        "src/app.py",
+        "src/config.py",
+        "src/routes/api.py",
+        "src/routes/auth.py"
+      ]
     },
     "deployment-config": {
       "status": "complete",
       "pr": "#1",
-      "files": ["Dockerfile", "docker-compose.yml", ".env.example", "gunicorn.conf.py", "docs/DEPLOYMENT.md", "scripts/healthcheck.py"]
+      "files": [
+        "Dockerfile",
+        "docker-compose.yml",
+        ".env.example",
+        "gunicorn.conf.py",
+        "docs/DEPLOYMENT.md",
+        "scripts/healthcheck.py"
+      ]
     },
     "offline-error-recovery": {
       "status": "complete",
       "pr": "#2",
-      "files": ["static/js/offline.js", "static/js/storage.js", "static/js/app.js", "templates/base.html", "static/css/style.css"]
+      "files": [
+        "static/js/offline.js",
+        "static/js/storage.js",
+        "static/js/app.js",
+        "templates/base.html",
+        "static/css/style.css"
+      ]
     },
     "integration-tests": {
       "status": "complete",
       "pr": "#3",
-      "files": ["tests/test_integration.py", "tests/fixtures/sample_data.py", "pytest.ini", "tests/conftest.py"]
+      "files": [
+        "tests/test_integration.py",
+        "tests/fixtures/sample_data.py",
+        "pytest.ini",
+        "tests/conftest.py"
+      ]
     }
   },
   "test_coverage": {
@@ -53,20 +78,42 @@
     "authentication_rbac": "complete",
     "structured_logging": "complete",
     "offline_support": "complete",
-    "docker_deployment": "complete"
+    "docker_deployment": "complete",
+    "manuals_search": "complete",
+    "llm_chat_assistant": "complete"
   },
   "history": [
-    {"phase": "wave1", "completed": "2025-12-28", "notes": "Security, auth, migrations, tests"},
-    {"phase": "wave2", "completed": "2025-12-29", "notes": "Logging, deployment, offline, integration tests"},
-    {"phase": "manuals-search", "completed": "2026-02-02", "notes": "Expanded query handling for acronyms, synonyms, and spelling variants with unit tests."},
-    {"phase": "manuals-search", "completed": "2026-02-02", "notes": "Aligned UTC usage with timezone.utc for Python 3.10 compatibility in tests."}
+    {
+      "phase": "wave1",
+      "completed": "2025-12-28",
+      "notes": "Security, auth, migrations, tests"
+    },
+    {
+      "phase": "wave2",
+      "completed": "2025-12-29",
+      "notes": "Logging, deployment, offline, integration tests"
+    },
+    {
+      "phase": "manuals-search",
+      "completed": "2026-02-02",
+      "notes": "Expanded query handling for acronyms, synonyms, and spelling variants with unit tests."
+    },
+    {
+      "phase": "manuals-search",
+      "completed": "2026-02-02",
+      "notes": "Aligned UTC usage with timezone.utc for Python 3.10 compatibility in tests."
+    },
+    {
+      "phase": "llm-assistant",
+      "completed": "2026-02-07",
+      "notes": "LLM-powered manuals chat assistant merged (PR #6). SSE streaming, citations, fallback."
+    }
   ],
   "next_steps": [
-    "Local testing with Docker",
-    "Deploy to staging",
-    "Test on vessel during port call",
-    "Iterate based on crew feedback"
+    "Add nav link between manuals search and chat",
+    "Staging deployment validation",
+    "Vessel port-call testing"
   ],
   "created_at": "2025-12-12T00:00:00",
-  "last_updated": "2026-02-02T17:07:46Z"
+  "last_updated": "2026-02-07T00:00:00Z"
 }

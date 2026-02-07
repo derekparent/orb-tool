@@ -27,7 +27,7 @@ class Config:
     MANUALS_DB_PATH = BASE_DIR / "data" / "engine_search.db"
     MANUALS_PDF_DIR = Path(os.environ.get(
         "MANUALS_PDF_DIR",
-        "/Users/dp/Projects/engine_tool"  # Default for DP's machine
+        BASE_DIR.parent / "engine_tool"  # Fallback: PDFs in sibling engine_tool; set MANUALS_PDF_DIR env
     ))
 
     # Security settings

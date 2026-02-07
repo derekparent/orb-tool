@@ -1,4 +1,4 @@
-# Project Learnings - Oil Record Book Tool / Engine Room Status Board
+# Project Learnings - ORB Tool (orb-tool)
 
 *Lessons learned during development. Synced to central learnings repo via `capture-learnings` skill.*
 
@@ -32,20 +32,15 @@
   ```
 
 ### What Worked
-- 22 tests, all passing
 - Clean Flask app factory pattern
 - Comprehensive API (~25 endpoints)
-
-### What's Missing
-- Handover package generation (the actual value prop)
-- OCR auto-fill (designed but not built)
-- API/integration tests
+- Handover package generation, OCR, API/integration tests (all implemented in Waves 1–2)
 
 ---
 
 ## Patterns to Extract to Central Repo
 
-- [ ] datetime.utcnow() → datetime.now(timezone.utc) migration pattern
+- [x] datetime.utcnow() → datetime.now(timezone.utc) migration pattern
 - [ ] Flask services layer pattern
 - [ ] Sounding table data structure
 

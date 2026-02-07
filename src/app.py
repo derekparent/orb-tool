@@ -1,4 +1,4 @@
-"""Oil Record Book Tool - Flask Application."""
+"""ORB Tool - Flask Application."""
 
 import os
 from dotenv import load_dotenv
@@ -40,7 +40,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
     # Initialize logging first (before other extensions)
     logger, audit_logger = setup_logging(
-        app_name="oil_record_book",
+        app_name="orb_tool",
         log_level=app.config.get("LOG_LEVEL"),
         log_dir=app.config.get("LOG_DIR"),
         json_format=app.config.get("LOG_JSON_FORMAT", True),

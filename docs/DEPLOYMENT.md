@@ -29,7 +29,7 @@ This guide covers deploying the Oil Record Book Tool to production.
 ```bash
 # 1. Clone the repository
 git clone git@github.com:derekparent/orb-tool.git
-cd oil_record_book_tool
+cd orb-tool
 
 # 2. Create environment file
 cp .env.example .env
@@ -141,7 +141,7 @@ sudo su - orb
 
 # Clone repository
 git clone git@github.com:derekparent/orb-tool.git
-cd oil_record_book_tool
+cd orb-tool
 
 # Create virtual environment
 python3.11 -m venv venv
@@ -163,10 +163,10 @@ After=network.target
 [Service]
 User=orb
 Group=orb
-WorkingDirectory=/home/orb/oil_record_book_tool
-Environment="PATH=/home/orb/oil_record_book_tool/venv/bin"
-EnvironmentFile=/home/orb/oil_record_book_tool/.env
-ExecStart=/home/orb/oil_record_book_tool/venv/bin/gunicorn --config gunicorn.conf.py src.app:create_app()
+WorkingDirectory=/home/orb/orb-tool
+Environment="PATH=/home/orb/orb-tool/venv/bin"
+EnvironmentFile=/home/orb/orb-tool/.env
+ExecStart=/home/orb/orb-tool/venv/bin/gunicorn --config gunicorn.conf.py src.app:create_app()
 Restart=always
 RestartSec=3
 
@@ -253,7 +253,7 @@ server {
 
     # Static files (optional optimization)
     location /static/ {
-        alias /home/orb/oil_record_book_tool/static/;
+        alias /home/orb/orb-tool/static/;
         expires 30d;
     }
 }
@@ -319,14 +319,14 @@ The last number (45000) is response time in μs (45ms).
 
 ```bash
 # Add to crontab
-0 2 * * * /home/orb/oil_record_book_tool/venv/bin/python /home/orb/oil_record_book_tool/scripts/backup_database.py
+0 2 * * * /home/orb/orb-tool/venv/bin/python /home/orb/orb-tool/scripts/backup_database.py
 ```
 
 ### Off-site Backup
 
 ```bash
 # Sync to cloud storage (example with rclone)
-rclone sync /home/orb/oil_record_book_tool/data/backups remote:orb-backups
+rclone sync /home/orb/orb-tool/data/backups remote:orb-backups
 ```
 
 ## Troubleshooting
@@ -371,8 +371,8 @@ docker compose exec web python -c "from src.models import db; from src.app impor
 docker compose exec web chown -R appuser:appgroup /app/data
 
 # Fix file permissions (manual)
-chown -R orb:orb /home/orb/oil_record_book_tool/data
-chmod 755 /home/orb/oil_record_book_tool/data
+chown -R orb:orb /home/orb/orb-tool/data
+chmod 755 /home/orb/orb-tool/data
 ```
 
 ### OCR Not Working

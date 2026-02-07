@@ -5,7 +5,7 @@ PDF Indexer for Manuals Search Module
 Scans equipment folders, extracts text page-by-page, builds SQLite FTS5 index.
 Each page becomes a separate indexed document for page-level search results.
 
-Ported from engine_tool/src/indexer.py for orb-tool consolidation.
+Consolidated from engine_tool into orb-tool.
 """
 
 import hashlib

@@ -35,7 +35,7 @@ class RequestLoggerMiddleware:
         "/api/v1/auth",
     ])
 
-    def __init__(self, app: Flask | None = None, logger_name: str = "oil_record_book"):
+    def __init__(self, app: Flask | None = None, logger_name: str = "orb_tool"):
         self.logger = get_logger(logger_name)
         if app is not None:
             self.init_app(app)
@@ -137,7 +137,7 @@ class RequestLoggerMiddleware:
             )
 
 
-def init_request_logging(app: Flask, logger_name: str = "oil_record_book"):
+def init_request_logging(app: Flask, logger_name: str = "orb_tool"):
     """
     Initialize request logging middleware for a Flask app.
 
