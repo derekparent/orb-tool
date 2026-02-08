@@ -685,7 +685,7 @@
                 var optMatch = pText.match(/\(([^)]+)\)\s*\??$/);
                 if (optMatch) {
                     // Split options: "3516, C18, C32, or C4.4?" → ["3516", "C18", "C32", "C4.4"]
-                    var opts = optMatch[1].replace(/\?$/, '').split(/,\s*|\s+or\s+/).map(function(s) { return s.trim(); }).filter(Boolean);
+                    var opts = optMatch[1].replace(/\?$/, '').split(/,\s*(?:or\s+)?|\s+or\s+/).map(function(s) { return s.trim(); }).filter(Boolean);
                     if (opts.length >= 2) {
                         // Replace paragraph content with clickable option chips
                         var prefix = pText.slice(0, pText.indexOf('(' + optMatch[1] + ')'));
