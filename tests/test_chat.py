@@ -1153,6 +1153,70 @@ class TestSuggestionChipsTemplate:
         assert ".suggestion-chip:hover" in html
         assert ".suggestion-chip::after" in html
 
+    # ── Imperative verb filter (procedure step detection) ──
+
+    def test_imperative_verb_list_exists(self, app, client):
+        """Chat should have IMPERATIVE_VERBS array for procedure step filtering."""
+        html = self._get_chat_html(app, client)
+        assert "IMPERATIVE_VERBS" in html
+        assert "startsWithImperativeVerb" in html
+
+    def test_imperative_verb_list_covers_common_verbs(self, app, client):
+        """Verb list should include the most common engine manual procedure verbs."""
+        html = self._get_chat_html(app, client)
+        for verb in ["remove", "install", "check", "tighten", "torque", "drain"]:
+            assert f"'{verb}'" in html, f"Missing imperative verb: {verb}"
+
+    def test_spec_pattern_filter_exists(self, app, client):
+        """Chat should filter items containing measurement specs (ft-lbs, psi, etc.)."""
+        html = self._get_chat_html(app, client)
+        assert "hasSpecPattern" in html
+        assert "ft" in html  # ft-lbs pattern
+        assert "psi" in html
+
+    def test_suggestion_context_detector(self, app, client):
+        """Chat should check if a list follows a question/invitation paragraph."""
+        html = self._get_chat_html(app, client)
+        assert "isSuggestionContext" in html
+
+    # ── Keyboard + accessibility ──
+
+    def test_keyboard_accessible_chips(self, app, client):
+        """Chips should be keyboard-navigable with tabindex and role=button."""
+        html = self._get_chat_html(app, client)
+        assert "makeChipAccessible" in html
+        assert "tabindex" in html
+        assert "role" in html
+
+    def test_enter_space_activates_chip(self, app, client):
+        """Enter and Space keys should activate suggestion chips."""
+        html = self._get_chat_html(app, client)
+        assert "e.key === 'Enter'" in html or "e.key==='Enter'" in html
+        assert "e.key === ' '" in html or "e.key===' '" in html
+
+    def test_focus_visible_styles_exist(self, app, client):
+        """Chips should have :focus-visible styles for keyboard navigation."""
+        html = self._get_chat_html(app, client)
+        assert ".suggestion-chip:focus-visible" in html
+
+    # ── Option chip class-based styling ──
+
+    def test_option_chip_css_class(self, app, client):
+        """Parenthesized option chips should use .suggestion-chip-option class."""
+        html = self._get_chat_html(app, client)
+        assert ".suggestion-chip-option" in html
+        assert "suggestion-chip-option" in html  # referenced in JS too
+
+    def test_no_inline_styles_on_option_chips(self, app, client):
+        """Option chips should NOT use inline styles (class-based only)."""
+        html = self._get_chat_html(app, client)
+        # The old code had chip.style.display = 'inline-block' etc.
+        # New code should use .suggestion-chip-option class instead.
+        # Verify the old inline style pattern is gone from the option chip section.
+        assert "chip.style.display" not in html
+        assert "chip.style.padding" not in html
+        assert "chip.style.border =" not in html
+
 
 # ─────────────────────────────────────────────────────────────────
 # Integration Tests: Chat UI Improvements (PR #9 follow-up)

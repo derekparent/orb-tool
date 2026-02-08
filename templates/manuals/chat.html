@@ -402,21 +402,53 @@
     transition: background 0.15s, color 0.15s;
 }
 
-.suggestion-chip:hover {
+.suggestion-chip:hover,
+.suggestion-chip:focus-visible {
     background: rgba(88, 166, 255, 0.12);
     color: var(--accent-primary);
 }
 
+.suggestion-chip:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
 .suggestion-chip::after {
-    content: ' ↵';
+    content: ' \21B5';
     font-size: 0.7em;
     opacity: 0;
     color: var(--accent-primary);
     transition: opacity 0.15s;
 }
 
-.suggestion-chip:hover::after {
+.suggestion-chip:hover::after,
+.suggestion-chip:focus-visible::after {
     opacity: 0.6;
+}
+
+/* Individual option chips (e.g. engine model buttons) */
+.suggestion-chip-option {
+    display: inline-block;
+    padding: 4px 12px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    margin: 2px;
+    cursor: pointer;
+    min-height: 36px;
+    line-height: 28px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.suggestion-chip-option:hover,
+.suggestion-chip-option:focus-visible {
+    background: rgba(88, 166, 255, 0.12);
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.suggestion-chip-option:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 1px;
 }
 
 .unavailable {
@@ -730,41 +762,89 @@
     /* ── Suggestion chip detection ─────────────────────────────── */
 
     /**
+     * Imperative verbs common in engine manual procedures.
+     * Items starting with these are procedure steps, NOT clickable suggestions.
+     *
+     * e.g. "Remove the valve cover" = step (reject)
+     *      "Fuel rack adjustment procedures" = topic (accept)
+     */
+    var IMPERATIVE_VERBS = [
+        'remove', 'install', 'check', 'tighten', 'inspect', 'verify',
+        'disconnect', 'connect', 'clean', 'replace', 'open', 'close',
+        'turn', 'set', 'adjust', 'apply', 'measure', 'record', 'allow',
+        'ensure', 'drain', 'fill', 'loosen', 'position', 'rotate',
+        'align', 'secure', 'attach', 'detach', 'reassemble', 'disassemble',
+        'lubricate', 'prime', 'bleed', 'flush', 'torque', 'pull', 'push',
+        'lift', 'lower', 'start', 'stop', 'operate', 'engage', 'disengage',
+        'release', 'hold', 'press', 'insert', 'extract', 'place', 'confirm',
+        'monitor', 'wait', 'use', 'perform', 'repeat', 'continue',
+        'refer', 'observe', 'locate', 'identify'
+    ];
+
+    function startsWithImperativeVerb(text) {
+        var first = text.split(/\s+/)[0].toLowerCase().replace(/[^a-z]/g, '');
+        for (var i = 0; i < IMPERATIVE_VERBS.length; i++) {
+            if (first === IMPERATIVE_VERBS[i]) return true;
+        }
+        return false;
+    }
+
+    function hasSpecPattern(text) {
+        return /\d+\s*(ft[\-\s]?lb|psi|kpa|nm|mm|in[\.\s]|gal|liter|°[fc])/i.test(text);
+    }
+
+    function isSuggestionContext(listEl) {
+        var prev = listEl.previousElementSibling;
+        if (!prev) return false;
+        var t = prev.textContent.toLowerCase().trim();
+        return /\?$/.test(t) ||
+            /\b(which|would you like|options|topics|can help|could help|here are|i found|choose|select|looking for)\b/.test(t);
+    }
+
+    /**
      * Scan an assistant message bubble for clickable suggestions.
      *
-     * Detects:
-     *   - Ordered list items (numbered options like "1. Fuel rack procedures")
-     *   - Unordered list items that end with "?" (clarifying questions)
-     *   - Parenthesized option lists like "(3516, C18, C32, or C4.4?)"
+     * DETECTION RULES (deterministic, ordered):
      *
-     * Adds .suggestion-chip class and click handler that fills the input.
+     * For list items (ol > li, ul > li):
+     *   REJECT if any:
+     *     - Text < 5 chars or > 80 chars
+     *     - Starts with imperative verb (procedure step)
+     *     - Starts with "Step N:", "Warning:", "Caution:", "Note:"
+     *     - Contains specification units (ft-lbs, psi, mm, etc.)
+     *     - Contains a .citation element
+     *     - Multi-sentence (sentence-ending punct followed by uppercase)
+     *   ACCEPT remaining items.
+     *
+     * For paragraphs:
+     *   - Questions (ends with ?) between 10-200 chars → clickable
+     *   - Parenthesized option lists → split into individual chips
+     *
+     * Adds .suggestion-chip / .suggestion-chip-option class,
+     * keyboard support (tabindex, role=button, Enter/Space), and
+     * click handler that fills the chat input.
      */
     function enhanceSuggestions(bubble) {
-        // List items in <ol> and <ul> — these are the primary suggestion format
-        var items = bubble.querySelectorAll('ol > li, ul > li');
-        for (var i = 0; i < items.length; i++) {
-            var li = items[i];
-            var text = li.textContent.trim();
-            // Skip items that are just citations or very short
-            if (text.length < 5) continue;
-            // Skip items that look like procedure steps with safety content
-            if (/^(warning|caution|note):/i.test(text)) continue;
-            // Skip long items (>80 chars) — likely explanations, not suggestions
-            if (text.length > 80) continue;
-            // Skip items containing citations — part of walkthrough, not suggestion
-            if (li.querySelector('.citation')) continue;
-            // Skip procedure-step patterns: "Step N:", "Remove the...", "Install the..."
-            if (/^step\s+\d/i.test(text)) continue;
-            // Skip multi-sentence items (clarifying questions with explanations)
-            if ((text.match(/[.?!]\s+[A-Z]/g) || []).length >= 1) continue;
+        // List items in <ol> and <ul>
+        var lists = bubble.querySelectorAll('ol, ul');
+        for (var li_idx = 0; li_idx < lists.length; li_idx++) {
+            var list = lists[li_idx];
+            var items = list.children;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].tagName !== 'LI') continue;
+                var li = items[i];
+                var text = li.textContent.trim();
 
-            li.classList.add('suggestion-chip');
-            li.setAttribute('title', 'Click to fill input');
-            (function(t) {
-                li.addEventListener('click', function() {
-                    fillInput(t);
-                });
-            })(text);
+                // ── Reject filters (order: cheapest first) ──
+                if (text.length < 5 || text.length > 80) continue;
+                if (/^(warning|caution|note|step\s+\d)/i.test(text)) continue;
+                if (li.querySelector('.citation')) continue;
+                if ((text.match(/[.?!]\s+[A-Z]/g) || []).length >= 1) continue;
+                if (startsWithImperativeVerb(text)) continue;
+                if (hasSpecPattern(text)) continue;
+
+                makeChip(li, text);
+            }
         }
 
         // Standalone questions in paragraphs (e.g. "Which engine? (3516, C18, C32?)")
@@ -772,51 +852,52 @@
         for (var j = 0; j < paras.length; j++) {
             var p = paras[j];
             var pText = p.textContent.trim();
-            // Detect question paragraphs — ends with ? and is relatively short
-            if (pText.endsWith('?') && pText.length < 200 && pText.length > 10) {
-                // Extract options from parenthesized lists like "(3516, C18, C32, or C4.4?)"
-                var optMatch = pText.match(/\(([^)]+)\)\s*\??$/);
-                if (optMatch) {
-                    // Split options: "3516, C18, C32, or C4.4?" → ["3516", "C18", "C32", "C4.4"]
-                    var opts = optMatch[1].replace(/\?$/, '').split(/,\s*(?:or\s+)?|\s+or\s+/).map(function(s) { return s.trim(); }).filter(Boolean);
-                    if (opts.length >= 2) {
-                        // Replace paragraph content with clickable option chips
-                        var prefix = pText.slice(0, pText.indexOf('(' + optMatch[1] + ')'));
-                        while (p.firstChild) p.removeChild(p.firstChild);
-                        if (prefix.trim()) {
-                            p.appendChild(document.createTextNode(prefix));
-                        }
-                        for (var k = 0; k < opts.length; k++) {
-                            if (k > 0) p.appendChild(document.createTextNode(' '));
-                            var chip = document.createElement('span');
-                            chip.className = 'suggestion-chip';
-                            chip.textContent = opts[k];
-                            chip.setAttribute('title', 'Click to fill input');
-                            chip.style.display = 'inline-block';
-                            chip.style.padding = '2px 8px';
-                            chip.style.border = '1px solid var(--border-default)';
-                            chip.style.borderRadius = 'var(--radius-sm)';
-                            chip.style.margin = '2px';
-                            (function(t) {
-                                chip.addEventListener('click', function() {
-                                    fillInput(t);
-                                });
-                            })(opts[k]);
-                            p.appendChild(chip);
-                        }
-                        continue;
+            if (!pText.endsWith('?') || pText.length > 200 || pText.length < 10) continue;
+
+            // Extract options from parenthesized lists like "(3516, C18, C32, or C4.4?)"
+            var optMatch = pText.match(/\(([^)]+)\)\s*\??$/);
+            if (optMatch) {
+                var opts = optMatch[1].replace(/\?$/, '').split(/,\s*(?:or\s+)?|\s+or\s+/)
+                    .map(function(s) { return s.trim(); }).filter(Boolean);
+                if (opts.length >= 2) {
+                    var prefix = pText.slice(0, pText.indexOf('(' + optMatch[1] + ')'));
+                    while (p.firstChild) p.removeChild(p.firstChild);
+                    if (prefix.trim()) p.appendChild(document.createTextNode(prefix));
+                    for (var k = 0; k < opts.length; k++) {
+                        if (k > 0) p.appendChild(document.createTextNode(' '));
+                        var chip = document.createElement('span');
+                        chip.className = 'suggestion-chip-option';
+                        chip.textContent = opts[k];
+                        makeChipAccessible(chip, opts[k]);
+                        p.appendChild(chip);
                     }
+                    continue;
                 }
-                // Otherwise make the whole question clickable
-                p.classList.add('suggestion-chip');
-                p.setAttribute('title', 'Click to fill input');
-                (function(t) {
-                    p.addEventListener('click', function() {
-                        fillInput(t);
-                    });
-                })(pText);
             }
+
+            // Whole question paragraph clickable
+            makeChip(p, pText);
         }
+    }
+
+    function makeChip(el, text) {
+        el.classList.add('suggestion-chip');
+        makeChipAccessible(el, text);
+    }
+
+    function makeChipAccessible(el, text) {
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('role', 'button');
+        el.setAttribute('title', 'Click to fill input');
+        (function(t) {
+            el.addEventListener('click', function() { fillInput(t); });
+            el.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fillInput(t);
+                }
+            });
+        })(text);
     }
 
     function fillInput(text) {
