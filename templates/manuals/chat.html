@@ -11,6 +11,7 @@
     display: flex;
     flex-direction: column;
     height: calc(100vh - 60px);
+    position: relative;
 }
 
 .chat-header {
@@ -308,6 +309,36 @@
     cursor: not-allowed;
 }
 
+.btn-send.btn-stop {
+    background: var(--accent-danger, #f85149);
+    color: #fff;
+}
+
+.btn-send.btn-stop:hover {
+    opacity: 0.85;
+}
+
+.scroll-pill {
+    position: absolute;
+    bottom: 140px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-elevated, #21262d);
+    color: var(--accent-primary);
+    border: 1px solid var(--border-default);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    animation: fadeIn 0.2s ease-in;
+}
+
+.scroll-pill:hover {
+    opacity: 0.85;
+}
+
 .chat-status {
     font-size: 0.75rem;
     color: var(--text-muted, #484f58);
@@ -360,6 +391,32 @@
 .example-query:hover {
     border-color: var(--accent-primary);
     color: var(--text-primary);
+}
+
+/* Clickable suggestion chips in assistant messages */
+.suggestion-chip {
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    margin: -2px -4px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.suggestion-chip:hover {
+    background: rgba(88, 166, 255, 0.12);
+    color: var(--accent-primary);
+}
+
+.suggestion-chip::after {
+    content: ' ↵';
+    font-size: 0.7em;
+    opacity: 0;
+    color: var(--accent-primary);
+    transition: opacity 0.15s;
+}
+
+.suggestion-chip:hover::after {
+    opacity: 0.6;
 }
 
 .unavailable {
@@ -467,6 +524,9 @@
     var equipmentEl = document.getElementById('equipment-filter');
     var sessionId = null;
     var isStreaming = false;
+    var abortController = null;
+    var autoScroll = true;
+    var scrollPill = null;
 
     // Auto-resize textarea
     inputEl.addEventListener('input', function() {
@@ -481,6 +541,46 @@
             sendMessage();
         }
     });
+
+    // Escape to stop generation
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && isStreaming && abortController) {
+            abortController.abort();
+        }
+    });
+
+    // Auto-scroll: pause when user scrolls up during streaming
+    messagesEl.addEventListener('scroll', function() {
+        if (!isStreaming) return;
+        var atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
+        if (!atBottom && autoScroll) {
+            autoScroll = false;
+            showScrollPill();
+        } else if (atBottom && !autoScroll) {
+            autoScroll = true;
+            hideScrollPill();
+        }
+    });
+
+    function showScrollPill() {
+        if (scrollPill) return;
+        scrollPill = document.createElement('button');
+        scrollPill.className = 'scroll-pill';
+        scrollPill.textContent = '\u2193 New content';
+        scrollPill.addEventListener('click', function() {
+            autoScroll = true;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            hideScrollPill();
+        });
+        messagesEl.parentElement.appendChild(scrollPill);
+    }
+
+    function hideScrollPill() {
+        if (scrollPill && scrollPill.parentElement) {
+            scrollPill.parentElement.removeChild(scrollPill);
+        }
+        scrollPill = null;
+    }
 
     /* ── Safe markdown rendering via DOM APIs (no innerHTML) ──────── */
 
@@ -579,9 +679,26 @@
             if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
 
             if (m[1]) {
-                var strong = document.createElement('strong');
-                strong.textContent = m[2];
-                frag.appendChild(strong);
+                // Check if bold text is a doc reference like "sebu8224-10-00, pages 41-43"
+                var docRef = m[2].match(/^([a-z]+\d[\w-]+),\s*(?:pages?\s*|pp?\.\s*)(\d+)/i);
+                if (docRef) {
+                    var cite = document.createElement('a');
+                    cite.className = 'citation';
+                    cite.textContent = m[2];
+                    cite.setAttribute('href', '#');
+                    cite.setAttribute('title', 'Open ' + docRef[1] + ' at page ' + docRef[2]);
+                    (function(fn, pg) {
+                        cite.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            openPdfByName(fn, pg);
+                        });
+                    })(docRef[1], docRef[2]);
+                    frag.appendChild(cite);
+                } else {
+                    var strong = document.createElement('strong');
+                    strong.textContent = m[2];
+                    frag.appendChild(strong);
+                }
             } else if (m[3]) {
                 var code = document.createElement('code');
                 code.textContent = m[4];
@@ -610,11 +727,119 @@
         return frag;
     }
 
+    /* ── Suggestion chip detection ─────────────────────────────── */
+
+    /**
+     * Scan an assistant message bubble for clickable suggestions.
+     *
+     * Detects:
+     *   - Ordered list items (numbered options like "1. Fuel rack procedures")
+     *   - Unordered list items that end with "?" (clarifying questions)
+     *   - Parenthesized option lists like "(3516, C18, C32, or C4.4?)"
+     *
+     * Adds .suggestion-chip class and click handler that fills the input.
+     */
+    function enhanceSuggestions(bubble) {
+        // List items in <ol> and <ul> — these are the primary suggestion format
+        var items = bubble.querySelectorAll('ol > li, ul > li');
+        for (var i = 0; i < items.length; i++) {
+            var li = items[i];
+            var text = li.textContent.trim();
+            // Skip items that are just citations or very short
+            if (text.length < 5) continue;
+            // Skip items that look like procedure steps with safety content
+            if (/^(warning|caution|note):/i.test(text)) continue;
+            // Skip long items (>80 chars) — likely explanations, not suggestions
+            if (text.length > 80) continue;
+            // Skip items containing citations — part of walkthrough, not suggestion
+            if (li.querySelector('.citation')) continue;
+            // Skip procedure-step patterns: "Step N:", "Remove the...", "Install the..."
+            if (/^step\s+\d/i.test(text)) continue;
+            // Skip multi-sentence items (clarifying questions with explanations)
+            if ((text.match(/[.?!]\s+[A-Z]/g) || []).length >= 1) continue;
+
+            li.classList.add('suggestion-chip');
+            li.setAttribute('title', 'Click to fill input');
+            (function(t) {
+                li.addEventListener('click', function() {
+                    fillInput(t);
+                });
+            })(text);
+        }
+
+        // Standalone questions in paragraphs (e.g. "Which engine? (3516, C18, C32?)")
+        var paras = bubble.querySelectorAll('p');
+        for (var j = 0; j < paras.length; j++) {
+            var p = paras[j];
+            var pText = p.textContent.trim();
+            // Detect question paragraphs — ends with ? and is relatively short
+            if (pText.endsWith('?') && pText.length < 200 && pText.length > 10) {
+                // Extract options from parenthesized lists like "(3516, C18, C32, or C4.4?)"
+                var optMatch = pText.match(/\(([^)]+)\)\s*\??$/);
+                if (optMatch) {
+                    // Split options: "3516, C18, C32, or C4.4?" → ["3516", "C18", "C32", "C4.4"]
+                    var opts = optMatch[1].replace(/\?$/, '').split(/,\s*(?:or\s+)?|\s+or\s+/).map(function(s) { return s.trim(); }).filter(Boolean);
+                    if (opts.length >= 2) {
+                        // Replace paragraph content with clickable option chips
+                        var prefix = pText.slice(0, pText.indexOf('(' + optMatch[1] + ')'));
+                        while (p.firstChild) p.removeChild(p.firstChild);
+                        if (prefix.trim()) {
+                            p.appendChild(document.createTextNode(prefix));
+                        }
+                        for (var k = 0; k < opts.length; k++) {
+                            if (k > 0) p.appendChild(document.createTextNode(' '));
+                            var chip = document.createElement('span');
+                            chip.className = 'suggestion-chip';
+                            chip.textContent = opts[k];
+                            chip.setAttribute('title', 'Click to fill input');
+                            chip.style.display = 'inline-block';
+                            chip.style.padding = '2px 8px';
+                            chip.style.border = '1px solid var(--border-default)';
+                            chip.style.borderRadius = 'var(--radius-sm)';
+                            chip.style.margin = '2px';
+                            (function(t) {
+                                chip.addEventListener('click', function() {
+                                    fillInput(t);
+                                });
+                            })(opts[k]);
+                            p.appendChild(chip);
+                        }
+                        continue;
+                    }
+                }
+                // Otherwise make the whole question clickable
+                p.classList.add('suggestion-chip');
+                p.setAttribute('title', 'Click to fill input');
+                (function(t) {
+                    p.addEventListener('click', function() {
+                        fillInput(t);
+                    });
+                })(pText);
+            }
+        }
+    }
+
+    function fillInput(text) {
+        inputEl.value = text;
+        inputEl.focus();
+        // Trigger resize
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+        // Brief visual flash on input to confirm fill
+        inputEl.style.borderColor = 'var(--accent-primary)';
+        setTimeout(function() { inputEl.style.borderColor = ''; }, 600);
+    }
+
     /* ── Chat logic ──────────────────────────────────────────────── */
 
     window.sendMessage = function() {
+        // If streaming, act as stop button
+        if (isStreaming) {
+            if (abortController) abortController.abort();
+            return;
+        }
         var query = inputEl.value.trim();
-        if (!query || isStreaming) return;
+        if (!query) return;
 
         if (emptyState) emptyState.style.display = 'none';
 
@@ -642,7 +867,11 @@
         scrollToBottom();
 
         isStreaming = true;
-        sendBtn.disabled = true;
+        abortController = new AbortController();
+        autoScroll = true;
+        hideScrollPill();
+        sendBtn.textContent = 'Stop';
+        sendBtn.classList.add('btn-stop');
         statusEl.textContent = '';
 
         // Assistant bubble
@@ -661,7 +890,8 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
             },
-            body: JSON.stringify({ query: query, session_id: sessionId, equipment: equipmentEl.value || null })
+            body: JSON.stringify({ query: query, session_id: sessionId, equipment: equipmentEl.value || null }),
+            signal: abortController.signal
         }).then(function(response) {
             if (!response.ok) throw new Error('Request failed');
             var reader = response.body.getReader();
@@ -695,6 +925,7 @@
                     if (thinkingEl.parentElement) thinkingEl.remove();
                     while (aBubble.firstChild) aBubble.removeChild(aBubble.firstChild);
                     aBubble.appendChild(renderMarkdownSafe(fullText));
+                    enhanceSuggestions(aBubble);
                     finishStreaming();
                 } else if (evt.type === 'error') {
                     if (thinkingEl.parentElement) thinkingEl.remove();
@@ -729,7 +960,20 @@
             }
 
             read();
-        }).catch(function() {
+        }).catch(function(err) {
+            if (err && err.name === 'AbortError') {
+                // User stopped generation — keep partial response
+                if (thinkingEl.parentElement) thinkingEl.remove();
+                if (fullText.trim()) {
+                    while (aBubble.firstChild) aBubble.removeChild(aBubble.firstChild);
+                    aBubble.appendChild(renderMarkdownSafe(fullText));
+                    enhanceSuggestions(aBubble);
+                } else {
+                    aDiv.remove();
+                }
+                finishStreaming();
+                return;
+            }
             if (thinkingEl.parentElement) thinkingEl.remove();
             var errDiv = document.createElement('div');
             errDiv.className = 'error-message';
@@ -741,12 +985,19 @@
 
     function finishStreaming() {
         isStreaming = false;
+        abortController = null;
+        autoScroll = true;
+        hideScrollPill();
+        sendBtn.textContent = 'Send';
         sendBtn.disabled = false;
+        sendBtn.classList.remove('btn-stop');
         inputEl.focus();
     }
 
     function scrollToBottom() {
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        if (autoScroll) {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
     }
 
     function getCSRFToken() {

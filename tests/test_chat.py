@@ -1109,3 +1109,108 @@ class TestDeepDiveIntegration:
         result = get_chat_response("what about oil filters?", history)
         assert result == "Here are oil filter results..."
         mock_search.assert_called_once()
+
+
+# ─────────────────────────────────────────────────────────────────
+# Integration Tests: Suggestion Chips in Chat Template
+# ─────────────────────────────────────────────────────────────────
+
+class TestSuggestionChipsTemplate:
+    """Test that the chat template includes clickable suggestion chip infrastructure."""
+
+    @staticmethod
+    def _get_chat_html(app, client):
+        """Get chat page HTML with LLM mocked as available."""
+        TestChatRoutes._login(app, client)
+        with patch("routes.chat.get_llm_service", return_value=MagicMock()):
+            response = client.get("/manuals/chat/")
+        return response.data.decode()
+
+    def test_chat_template_includes_suggestion_chip_css(self, app, client):
+        """Chat page should include .suggestion-chip CSS class."""
+        html = self._get_chat_html(app, client)
+        assert ".suggestion-chip" in html
+        assert "cursor: pointer" in html
+
+    def test_chat_template_includes_enhance_suggestions_function(self, app, client):
+        """Chat page should include enhanceSuggestions JS function."""
+        html = self._get_chat_html(app, client)
+        assert "enhanceSuggestions" in html
+
+    def test_chat_template_includes_fill_input_function(self, app, client):
+        """Chat page should include fillInput JS function."""
+        html = self._get_chat_html(app, client)
+        assert "fillInput" in html
+
+    def test_chat_template_calls_enhance_after_done(self, app, client):
+        """enhanceSuggestions should be called in the SSE done handler."""
+        html = self._get_chat_html(app, client)
+        assert "enhanceSuggestions(aBubble)" in html
+
+    def test_suggestion_chip_hover_affordance(self, app, client):
+        """Suggestion chips should have visual hover affordance."""
+        html = self._get_chat_html(app, client)
+        assert ".suggestion-chip:hover" in html
+        assert ".suggestion-chip::after" in html
+
+
+# ─────────────────────────────────────────────────────────────────
+# Integration Tests: Chat UI Improvements (PR #9 follow-up)
+# ─────────────────────────────────────────────────────────────────
+
+class TestChatUIImprovements:
+    """Test chat template includes clickable bold refs, stop button, and auto-scroll."""
+
+    @staticmethod
+    def _get_chat_html(app, client):
+        """Get chat page HTML with LLM mocked as available."""
+        TestChatRoutes._login(app, client)
+        with patch("routes.chat.get_llm_service", return_value=MagicMock()):
+            response = client.get("/manuals/chat/")
+        return response.data.decode()
+
+    # Feature 1: Clickable bold source references
+    def test_bold_doc_ref_detection(self, app, client):
+        """formatInline should detect doc-ID patterns in bold text."""
+        html = self._get_chat_html(app, client)
+        assert "docRef" in html
+        assert "openPdfByName" in html
+
+    # Feature 2: Stop generation
+    def test_abort_controller_exists(self, app, client):
+        """Chat should use AbortController for stream cancellation."""
+        html = self._get_chat_html(app, client)
+        assert "AbortController" in html
+        assert "abortController" in html
+
+    def test_stop_button_css(self, app, client):
+        """Chat should have btn-stop CSS class."""
+        html = self._get_chat_html(app, client)
+        assert ".btn-stop" in html
+
+    def test_escape_key_stops_streaming(self, app, client):
+        """Escape key should trigger abort during streaming."""
+        html = self._get_chat_html(app, client)
+        assert "Escape" in html
+
+    def test_abort_error_handled(self, app, client):
+        """AbortError should be caught without showing error to user."""
+        html = self._get_chat_html(app, client)
+        assert "AbortError" in html
+
+    # Feature 3: Smart auto-scroll
+    def test_auto_scroll_state(self, app, client):
+        """Chat should track auto-scroll state."""
+        html = self._get_chat_html(app, client)
+        assert "autoScroll" in html
+
+    def test_scroll_pill_css(self, app, client):
+        """Chat should have scroll-pill CSS."""
+        html = self._get_chat_html(app, client)
+        assert ".scroll-pill" in html
+
+    def test_scroll_pill_functions(self, app, client):
+        """Chat should have show/hide scroll pill functions."""
+        html = self._get_chat_html(app, client)
+        assert "showScrollPill" in html
+        assert "hideScrollPill" in html
