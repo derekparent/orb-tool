@@ -80,7 +80,8 @@
     "offline_support": "complete",
     "docker_deployment": "complete",
     "manuals_search": "complete",
-    "llm_chat_assistant": "complete"
+    "llm_chat_assistant": "complete",
+    "deep_dive_pdf_citations": "complete"
   },
   "history": [
     {
@@ -107,13 +108,18 @@
       "phase": "llm-assistant",
       "completed": "2026-02-07",
       "notes": "LLM-powered manuals chat assistant merged (PR #6). SSE streaming, citations, fallback."
+    },
+    {
+      "phase": "deep-dive-citations",
+      "completed": "2026-02-08",
+      "notes": "PR #8 merged: Phase 2 deep-dive detection + clickable PDF citations. Fuzzy filename matching for LLM abbreviations."
     }
   ],
   "next_steps": [
-    "Add nav link between manuals search and chat",
-    "Staging deployment validation",
-    "Vessel port-call testing"
+    "Clickable suggestion chips in chat UI (P1)",
+    "Citation format enforcement (P2)",
+    "Full pytest suite run"
   ],
   "created_at": "2025-12-12T00:00:00",
-  "last_updated": "2026-02-07T00:00:00Z"
+  "last_updated": "2026-02-08T04:00:00Z"
 }
