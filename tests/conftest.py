@@ -63,56 +63,63 @@ def runner(app):
 
 @pytest.fixture
 def admin_user(app):
-    """Create admin user for testing."""
-    with app.app_context():
-        user = User(
-            username='admin',
-            email='admin@test.com',
-            full_name='Test Admin',
-            role=UserRole.CHIEF_ENGINEER
-        )
-        user.set_password('admin123')
+    """Create admin user for testing.
 
-        db.session.add(user)
-        db.session.commit()
+    Note: no nested app.app_context() — the ``app`` fixture already
+    provides one.  Using a second context causes the returned User to
+    become detached once the inner ``with`` block exits, leading to
+    DetachedInstanceError when later fixtures access ``user.id``.
+    """
+    user = User(
+        username='admin',
+        email='admin@test.com',
+        full_name='Test Admin',
+        role=UserRole.CHIEF_ENGINEER
+    )
+    user.set_password('admin123')
 
-        return user
+    db.session.add(user)
+    db.session.commit()
+
+    # Eagerly materialise id so it survives session expiry
+    _ = user.id
+    return user
 
 
 @pytest.fixture
 def engineer_user(app):
     """Create engineer user for testing."""
-    with app.app_context():
-        user = User(
-            username='engineer',
-            email='engineer@test.com',
-            full_name='Test Engineer',
-            role=UserRole.ENGINEER
-        )
-        user.set_password('engineer123')
+    user = User(
+        username='engineer',
+        email='engineer@test.com',
+        full_name='Test Engineer',
+        role=UserRole.ENGINEER
+    )
+    user.set_password('engineer123')
 
-        db.session.add(user)
-        db.session.commit()
+    db.session.add(user)
+    db.session.commit()
 
-        return user
+    _ = user.id
+    return user
 
 
 @pytest.fixture
 def viewer_user(app):
     """Create viewer user for testing."""
-    with app.app_context():
-        user = User(
-            username='viewer',
-            email='viewer@test.com',
-            full_name='Test Viewer',
-            role=UserRole.VIEWER
-        )
-        user.set_password('viewer123')
+    user = User(
+        username='viewer',
+        email='viewer@test.com',
+        full_name='Test Viewer',
+        role=UserRole.VIEWER
+    )
+    user.set_password('viewer123')
 
-        db.session.add(user)
-        db.session.commit()
+    db.session.add(user)
+    db.session.commit()
 
-        return user
+    _ = user.id
+    return user
 
 
 @pytest.fixture
