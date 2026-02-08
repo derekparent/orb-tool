@@ -749,12 +749,14 @@
             if (text.length < 5) continue;
             // Skip items that look like procedure steps with safety content
             if (/^(warning|caution|note):/i.test(text)) continue;
-            // Skip long items (>120 chars) — likely walkthrough steps, not suggestions
-            if (text.length > 120) continue;
+            // Skip long items (>80 chars) — likely explanations, not suggestions
+            if (text.length > 80) continue;
             // Skip items containing citations — part of walkthrough, not suggestion
             if (li.querySelector('.citation')) continue;
             // Skip procedure-step patterns: "Step N:", "Remove the...", "Install the..."
             if (/^step\s+\d/i.test(text)) continue;
+            // Skip multi-sentence items (clarifying questions with explanations)
+            if ((text.match(/[.?!]\s+[A-Z]/g) || []).length >= 1) continue;
 
             li.classList.add('suggestion-chip');
             li.setAttribute('title', 'Click to fill input');
