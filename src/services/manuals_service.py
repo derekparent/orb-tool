@@ -698,7 +698,7 @@ def get_pages_content(
         # Fallback: LLM abbreviates filenames (drops .pdf, middle segments).
         # Match on doc ID prefix (e.g. "kenr5403-11-00") which is unique.
         if not rows:
-            doc_id = re.match(r"^[a-z]+\d+[-_]\d+[-_]\d+", filename)
+            doc_id = re.match(r"^[a-z]+\d+", filename)
             if doc_id:
                 cursor.execute(
                     f"""

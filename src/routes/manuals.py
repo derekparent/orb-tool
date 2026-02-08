@@ -235,7 +235,7 @@ def open_pdf_by_name():
         # Fallback: LLM abbreviates filenames (drops .pdf, middle segments).
         # Match on doc ID prefix (e.g. "kenr5403-11-00") which is unique.
         if not row:
-            doc_id = re.match(r"^[a-z]+\d+[-_]\d+[-_]\d+", filename)
+            doc_id = re.match(r"^[a-z]+\d+", filename)
             if doc_id:
                 row = conn.execute(
                     "SELECT filepath FROM pages WHERE filename LIKE ? LIMIT 1",
