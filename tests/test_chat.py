@@ -1152,3 +1152,65 @@ class TestSuggestionChipsTemplate:
         html = self._get_chat_html(app, client)
         assert ".suggestion-chip:hover" in html
         assert ".suggestion-chip::after" in html
+
+
+# ─────────────────────────────────────────────────────────────────
+# Integration Tests: Chat UI Improvements (PR #9 follow-up)
+# ─────────────────────────────────────────────────────────────────
+
+class TestChatUIImprovements:
+    """Test chat template includes clickable bold refs, stop button, and auto-scroll."""
+
+    @staticmethod
+    def _get_chat_html(app, client):
+        """Get chat page HTML with LLM mocked as available."""
+        TestChatRoutes._login(app, client)
+        with patch("routes.chat.get_llm_service", return_value=MagicMock()):
+            response = client.get("/manuals/chat/")
+        return response.data.decode()
+
+    # Feature 1: Clickable bold source references
+    def test_bold_doc_ref_detection(self, app, client):
+        """formatInline should detect doc-ID patterns in bold text."""
+        html = self._get_chat_html(app, client)
+        assert "docRef" in html
+        assert "openPdfByName" in html
+
+    # Feature 2: Stop generation
+    def test_abort_controller_exists(self, app, client):
+        """Chat should use AbortController for stream cancellation."""
+        html = self._get_chat_html(app, client)
+        assert "AbortController" in html
+        assert "abortController" in html
+
+    def test_stop_button_css(self, app, client):
+        """Chat should have btn-stop CSS class."""
+        html = self._get_chat_html(app, client)
+        assert ".btn-stop" in html
+
+    def test_escape_key_stops_streaming(self, app, client):
+        """Escape key should trigger abort during streaming."""
+        html = self._get_chat_html(app, client)
+        assert "Escape" in html
+
+    def test_abort_error_handled(self, app, client):
+        """AbortError should be caught without showing error to user."""
+        html = self._get_chat_html(app, client)
+        assert "AbortError" in html
+
+    # Feature 3: Smart auto-scroll
+    def test_auto_scroll_state(self, app, client):
+        """Chat should track auto-scroll state."""
+        html = self._get_chat_html(app, client)
+        assert "autoScroll" in html
+
+    def test_scroll_pill_css(self, app, client):
+        """Chat should have scroll-pill CSS."""
+        html = self._get_chat_html(app, client)
+        assert ".scroll-pill" in html
+
+    def test_scroll_pill_functions(self, app, client):
+        """Chat should have show/hide scroll pill functions."""
+        html = self._get_chat_html(app, client)
+        assert "showScrollPill" in html
+        assert "hideScrollPill" in html
