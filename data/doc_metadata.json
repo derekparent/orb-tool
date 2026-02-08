@@ -1,0 +1,522 @@
+{
+  "files": {
+    "Main_Engine_3516/kenr5403-11-00_manuals-service-modules_testing-&-adjusting-systems-operations.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/kenr5403-11-00_manuals-service-modules_testing-&-adjusting-systems-operations.pdf",
+      "equipment": "3516",
+      "doc_type": "testing",
+      "page_count": 86,
+      "total_chars": 166446,
+      "hash": "1d9585138142f34f"
+    },
+    "Main_Engine_3516/senr3130-16-00_manuals-service-modules_specifications.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/senr3130-16-00_manuals-service-modules_specifications.pdf",
+      "equipment": "3516",
+      "doc_type": "specifications",
+      "page_count": 24,
+      "total_chars": 38793,
+      "hash": "f9ccbbe8c3d08ba5"
+    },
+    "Main_Engine_3516/kenr5406-04-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/kenr5406-04-00-pub_schematics.pdf",
+      "equipment": "3516",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 82224,
+      "hash": "292f4dd473ead09b"
+    },
+    "Main_Engine_3516/renr8060-05-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/renr8060-05-00-pub_schematics.pdf",
+      "equipment": "3516",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 59891,
+      "hash": "3984b6e42501b462"
+    },
+    "Main_Engine_3516/sebu8224-10-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/sebu8224-10-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "3516",
+      "doc_type": "O&M",
+      "page_count": 162,
+      "total_chars": 367546,
+      "hash": "9acfc31b3f5d5375"
+    },
+    "Main_Engine_3516/kenr6055-11-00_manuals-service-modules_disassembly-&-assembly.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/kenr6055-11-00_manuals-service-modules_disassembly-&-assembly.pdf",
+      "equipment": "3516",
+      "doc_type": "disassembly",
+      "page_count": 164,
+      "total_chars": 246474,
+      "hash": "5bcbee0e09628f4c"
+    },
+    "Main_Engine_3516/kenr5405-06-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/kenr5405-06-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "3516",
+      "doc_type": "troubleshooting",
+      "page_count": 236,
+      "total_chars": 403998,
+      "hash": "e6c57dc9db63384b"
+    },
+    "Main_Engine_3516/kenr5404-06-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/kenr5404-06-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "3516",
+      "doc_type": "troubleshooting",
+      "page_count": 412,
+      "total_chars": 684380,
+      "hash": "e0ba9312501f3265"
+    },
+    "Main_Engine_3516/senr2995-04-00_manuals-special-instructions.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/senr2995-04-00_manuals-special-instructions.pdf",
+      "equipment": "3516",
+      "doc_type": "special-instructions",
+      "page_count": 8,
+      "total_chars": 0,
+      "hash": "613a63ceda156126"
+    },
+    "Main_Engine_3516/kenr5400-11-00_manuals-service.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/kenr5400-11-00_manuals-service.pdf",
+      "equipment": "3516",
+      "doc_type": "service",
+      "page_count": 2,
+      "total_chars": 1242,
+      "hash": "c61fdb7288f60982"
+    },
+    "Main_Engine_3516/sebu7844-23-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/sebu7844-23-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "3516",
+      "doc_type": "O&M",
+      "page_count": 148,
+      "total_chars": 347398,
+      "hash": "ace5fe79acdb0ccf"
+    },
+    "Main_Engine_3516/kenr5402-07-00_manuals-service-modules_specifications.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Main_Engine_3516/kenr5402-07-00_manuals-service-modules_specifications.pdf",
+      "equipment": "3516",
+      "doc_type": "specifications",
+      "page_count": 160,
+      "total_chars": 220901,
+      "hash": "a37c8968cf011d35"
+    },
+    "GenSet_C18/senr3130-16-00_manuals-service-modules_specifications.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/senr3130-16-00_manuals-service-modules_specifications.pdf",
+      "equipment": "C18",
+      "doc_type": "specifications",
+      "page_count": 24,
+      "total_chars": 38793,
+      "hash": "14e04d8cb171c63e"
+    },
+    "GenSet_C18/renr8070-00-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr8070-00-00-pub_schematics.pdf",
+      "equipment": "C18",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 26535,
+      "hash": "5e1c15f3c204bf1e"
+    },
+    "GenSet_C18/renr2387-18-00_manuals-service-modules_specifications.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr2387-18-00_manuals-service-modules_specifications.pdf",
+      "equipment": "C18",
+      "doc_type": "specifications",
+      "page_count": 110,
+      "total_chars": 84409,
+      "hash": "98836f8f42c34290"
+    },
+    "GenSet_C18/sebu7917-06-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/sebu7917-06-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C18",
+      "doc_type": "O&M",
+      "page_count": 130,
+      "total_chars": 293852,
+      "hash": "e7f594b3bd79f413"
+    },
+    "GenSet_C18/renr7937-01-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr7937-01-00-pub_schematics.pdf",
+      "equipment": "C18",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 51244,
+      "hash": "8714723c9f4309fa"
+    },
+    "GenSet_C18/renr2389-13-00_manuals-service-modules_disassembly-&-assembly.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr2389-13-00_manuals-service-modules_disassembly-&-assembly.pdf",
+      "equipment": "C18",
+      "doc_type": "disassembly",
+      "page_count": 184,
+      "total_chars": 249816,
+      "hash": "f28c9c44ca60f486"
+    },
+    "GenSet_C18/renr9325-04-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr9325-04-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "C18",
+      "doc_type": "troubleshooting",
+      "page_count": 150,
+      "total_chars": 289499,
+      "hash": "2ecf2773b7c73834"
+    },
+    "GenSet_C18/kenr6336-03-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/kenr6336-03-00-pub_schematics.pdf",
+      "equipment": "C18",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 40599,
+      "hash": "4c814db44a7cd7ac"
+    },
+    "GenSet_C18/sebu9023-04-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/sebu9023-04-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C18",
+      "doc_type": "O&M",
+      "page_count": 118,
+      "total_chars": 282358,
+      "hash": "43b696777f3f29cc"
+    },
+    "GenSet_C18/sebu7689-12-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/sebu7689-12-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C18",
+      "doc_type": "O&M",
+      "page_count": 146,
+      "total_chars": 338164,
+      "hash": "bd7fb95f1c09359a"
+    },
+    "GenSet_C18/sebu8245-06-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/sebu8245-06-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C18",
+      "doc_type": "O&M",
+      "page_count": 150,
+      "total_chars": 342757,
+      "hash": "347be364aa8a6b45"
+    },
+    "GenSet_C18/kenr5382-04-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/kenr5382-04-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "C18",
+      "doc_type": "troubleshooting",
+      "page_count": 178,
+      "total_chars": 342793,
+      "hash": "7d2efc3e382dfd8d"
+    },
+    "GenSet_C18/senr2995-04-00_manuals-special-instructions.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/senr2995-04-00_manuals-special-instructions.pdf",
+      "equipment": "C18",
+      "doc_type": "special-instructions",
+      "page_count": 8,
+      "total_chars": 0,
+      "hash": "25f4dfd0b6cd89f2"
+    },
+    "GenSet_C18/uenr0179-06-00_manuals-service-modules_disassembly-&-assembly.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/uenr0179-06-00_manuals-service-modules_disassembly-&-assembly.pdf",
+      "equipment": "C18",
+      "doc_type": "disassembly",
+      "page_count": 124,
+      "total_chars": 166008,
+      "hash": "ff28103175fc1414"
+    },
+    "GenSet_C18/senr9646-09-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/senr9646-09-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "C18",
+      "doc_type": "troubleshooting",
+      "page_count": 180,
+      "total_chars": 385245,
+      "hash": "20a5e91cc08eca56"
+    },
+    "GenSet_C18/renr2385-24-00_manuals-service.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr2385-24-00_manuals-service.pdf",
+      "equipment": "C18",
+      "doc_type": "service",
+      "page_count": 2,
+      "total_chars": 2490,
+      "hash": "5c770600683da535"
+    },
+    "GenSet_C18/sebu8118-05-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/sebu8118-05-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C18",
+      "doc_type": "O&M",
+      "page_count": 176,
+      "total_chars": 402779,
+      "hash": "fb83b8d84fddbdef"
+    },
+    "GenSet_C18/renr5093-05-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr5093-05-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "C18",
+      "doc_type": "troubleshooting",
+      "page_count": 168,
+      "total_chars": 308252,
+      "hash": "3c323d46aeaf45de"
+    },
+    "GenSet_C18/kenr6335-04-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/kenr6335-04-00-pub_schematics.pdf",
+      "equipment": "C18",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 58246,
+      "hash": "9b0d14f820fa74d4"
+    },
+    "GenSet_C18/renr2383-05-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr2383-05-00-pub_schematics.pdf",
+      "equipment": "C18",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 49399,
+      "hash": "df98f2e27fccf4ef"
+    },
+    "GenSet_C18/sebu8246-04-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/sebu8246-04-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C18",
+      "doc_type": "O&M",
+      "page_count": 140,
+      "total_chars": 310967,
+      "hash": "b77ccab9663a86df"
+    },
+    "GenSet_C18/renr2388-17-00_manuals-service-modules_testing-&-adjusting-systems-operations.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr2388-17-00_manuals-service-modules_testing-&-adjusting-systems-operations.pdf",
+      "equipment": "C18",
+      "doc_type": "testing",
+      "page_count": 70,
+      "total_chars": 143594,
+      "hash": "bead2379b7dc4dd4"
+    },
+    "GenSet_C18/renr9852-03-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr9852-03-00-pub_schematics.pdf",
+      "equipment": "C18",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 49277,
+      "hash": "cf91a628c9f8cb43"
+    },
+    "GenSet_C18/renr5013-03-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/GenSet_C18/renr5013-03-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "C18",
+      "doc_type": "troubleshooting",
+      "page_count": 140,
+      "total_chars": 305519,
+      "hash": "774833accc6e791d"
+    },
+    "Thruster_C32/kenr5914-00-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/kenr5914-00-00-pub_schematics.pdf",
+      "equipment": "C32",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 56074,
+      "hash": "a42775e6e69503be"
+    },
+    "Thruster_C32/renr8628-10-00_manuals-service-modules_disassembly-&-assembly.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/renr8628-10-00_manuals-service-modules_disassembly-&-assembly.pdf",
+      "equipment": "C32",
+      "doc_type": "disassembly",
+      "page_count": 184,
+      "total_chars": 230621,
+      "hash": "a0c44a5106eb82d6"
+    },
+    "Thruster_C32/senr3130-16-00_manuals-service-modules_specifications.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/senr3130-16-00_manuals-service-modules_specifications.pdf",
+      "equipment": "C32",
+      "doc_type": "specifications",
+      "page_count": 24,
+      "total_chars": 38793,
+      "hash": "853bfa1375d04fd3"
+    },
+    "Thruster_C32/sebu7822-10-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/sebu7822-10-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C32",
+      "doc_type": "O&M",
+      "page_count": 140,
+      "total_chars": 322389,
+      "hash": "ad32779aea6cff71"
+    },
+    "Thruster_C32/kenr6846-04-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/kenr6846-04-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "C32",
+      "doc_type": "troubleshooting",
+      "page_count": 172,
+      "total_chars": 352013,
+      "hash": "dfc8c1e9b9321f1a"
+    },
+    "Thruster_C32/kenr5897-03-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/kenr5897-03-00-pub_schematics.pdf",
+      "equipment": "C32",
+      "doc_type": "schematic",
+      "page_count": 4,
+      "total_chars": 223575,
+      "hash": "7b0ae2764e1f2cc9"
+    },
+    "Thruster_C32/sebu7782-08-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/sebu7782-08-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C32",
+      "doc_type": "O&M",
+      "page_count": 150,
+      "total_chars": 335250,
+      "hash": "63f0de3c1966539f"
+    },
+    "Thruster_C32/renr7914-01_pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/renr7914-01_pub_schematics.pdf",
+      "equipment": "C32",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 48838,
+      "hash": "3f92ff176b199563"
+    },
+    "Thruster_C32/senr2995-04-00_manuals-special-instructions.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/senr2995-04-00_manuals-special-instructions.pdf",
+      "equipment": "C32",
+      "doc_type": "special-instructions",
+      "page_count": 8,
+      "total_chars": 0,
+      "hash": "923036408a34ccab"
+    },
+    "Thruster_C32/sebu7793-04-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/sebu7793-04-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C32",
+      "doc_type": "O&M",
+      "page_count": 142,
+      "total_chars": 338129,
+      "hash": "884edc19f2d79fc8"
+    },
+    "Thruster_C32/senr9772-06-00_manuals-service-modules_specifications.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/senr9772-06-00_manuals-service-modules_specifications.pdf",
+      "equipment": "C32",
+      "doc_type": "specifications",
+      "page_count": 156,
+      "total_chars": 120973,
+      "hash": "1a5119b2a6ed110c"
+    },
+    "Thruster_C32/renr9303-04-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/renr9303-04-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "C32",
+      "doc_type": "troubleshooting",
+      "page_count": 184,
+      "total_chars": 382012,
+      "hash": "c48f13c79cd4f2e6"
+    },
+    "Thruster_C32/senr9773-04-00_manuals-service-modules_testing-&-adjusting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/senr9773-04-00_manuals-service-modules_testing-&-adjusting.pdf",
+      "equipment": "C32",
+      "doc_type": "testing",
+      "page_count": 72,
+      "total_chars": 169164,
+      "hash": "6d758c3642572c1d"
+    },
+    "Thruster_C32/renr9326-03-00_manuals-service-modules_troubleshooting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/renr9326-03-00_manuals-service-modules_troubleshooting.pdf",
+      "equipment": "C32",
+      "doc_type": "troubleshooting",
+      "page_count": 192,
+      "total_chars": 373979,
+      "hash": "5c1f192a7ce81cc9"
+    },
+    "Thruster_C32/senr9770-11-00_manuals-service.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Thruster_C32/senr9770-11-00_manuals-service.pdf",
+      "equipment": "C32",
+      "doc_type": "service",
+      "page_count": 2,
+      "total_chars": 1215,
+      "hash": "973374edcf8de3bd"
+    },
+    "Emergency_C4.4/senr3130-16-00_manuals-service-modules_specifications.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/senr3130-16-00_manuals-service-modules_specifications.pdf",
+      "equipment": "C4.4",
+      "doc_type": "specifications",
+      "page_count": 24,
+      "total_chars": 38793,
+      "hash": "1c0cf162797cba8f"
+    },
+    "Emergency_C4.4/sebu7919-09-00_manuals-operation-&-maintenance.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/sebu7919-09-00_manuals-operation-&-maintenance.pdf",
+      "equipment": "C4.4",
+      "doc_type": "O&M",
+      "page_count": 170,
+      "total_chars": 313097,
+      "hash": "6e0b7f781be17e95"
+    },
+    "Emergency_C4.4/renr7695-01-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/renr7695-01-00-pub_schematics.pdf",
+      "equipment": "C4.4",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 18143,
+      "hash": "f4595c2190ade37c"
+    },
+    "Emergency_C4.4/renr2437-05-00_manuals-service-modules_specifications.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/renr2437-05-00_manuals-service-modules_specifications.pdf",
+      "equipment": "C4.4",
+      "doc_type": "specifications",
+      "page_count": 76,
+      "total_chars": 68109,
+      "hash": "f4e7d686f2b21439"
+    },
+    "Emergency_C4.4/renr8638-00-00_manuals-service-modules_disassembly-&-assembly.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/renr8638-00-00_manuals-service-modules_disassembly-&-assembly.pdf",
+      "equipment": "C4.4",
+      "doc_type": "disassembly",
+      "page_count": 96,
+      "total_chars": 164886,
+      "hash": "76bdf025bebdeb98"
+    },
+    "Emergency_C4.4/renr8052-02-00-pub_schematics.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/renr8052-02-00-pub_schematics.pdf",
+      "equipment": "C4.4",
+      "doc_type": "schematic",
+      "page_count": 2,
+      "total_chars": 12344,
+      "hash": "b7f4a7cddfd7928b"
+    },
+    "Emergency_C4.4/senr2995-04-00_manuals-special-instructions.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/senr2995-04-00_manuals-special-instructions.pdf",
+      "equipment": "C4.4",
+      "doc_type": "special-instructions",
+      "page_count": 8,
+      "total_chars": 0,
+      "hash": "3ce26c116acb512e"
+    },
+    "Emergency_C4.4/renr9956-01-00_manuals-service-modules_systems-operations.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/renr9956-01-00_manuals-service-modules_systems-operations.pdf",
+      "equipment": "C4.4",
+      "doc_type": "systems",
+      "page_count": 18,
+      "total_chars": 19622,
+      "hash": "1e182155bbef7d62"
+    },
+    "Emergency_C4.4/renr2438-07-00_manuals-service-modules_testing-&-adjusting.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/renr2438-07-00_manuals-service-modules_testing-&-adjusting.pdf",
+      "equipment": "C4.4",
+      "doc_type": "testing",
+      "page_count": 264,
+      "total_chars": 363509,
+      "hash": "9cbb758446b397f0"
+    },
+    "Emergency_C4.4/senr9797-01-00_manuals-service-modules_specifications.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/senr9797-01-00_manuals-service-modules_specifications.pdf",
+      "equipment": "C4.4",
+      "doc_type": "specifications",
+      "page_count": 24,
+      "total_chars": 24645,
+      "hash": "8da9789e70afda8d"
+    },
+    "Emergency_C4.4/senr9890-03-00_manuals-service.pdf": {
+      "filepath": "/Users/dp/Projects/engine_tool/Emergency_C4.4/senr9890-03-00_manuals-service.pdf",
+      "equipment": "C4.4",
+      "doc_type": "service",
+      "page_count": 2,
+      "total_chars": 1021,
+      "hash": "ce5100d4267a55a5"
+    }
+  },
+  "stats": {
+    "total_files": 62,
+    "total_pages": 5736,
+    "total_chars": 11199082,
+    "by_equipment": {
+      "3516": 12,
+      "C18": 24,
+      "C32": 15,
+      "C4.4": 11
+    },
+    "by_doc_type": {
+      "testing": 4,
+      "specifications": 9,
+      "schematic": 13,
+      "O&M": 12,
+      "disassembly": 5,
+      "troubleshooting": 10,
+      "special-instructions": 4,
+      "service": 4,
+      "systems": 1
+    }
+  }
+}
