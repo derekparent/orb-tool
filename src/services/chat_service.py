@@ -4,9 +4,11 @@ Chat Service — Context assembly and conversation management.
 Orchestrates the RAG pipeline: query → search → context → LLM → response.
 Manages conversation history and token budgets.
 
-Two-phase context:
-  Phase 1 (triage): search_manuals() snippets → LLM groups & suggests directions
-  Phase 2 (follow-up): re-search with refined query → LLM narrows focus
+Context is snippets-only: we send search_manuals() snippets (short excerpts),
+not full page text. get_pages_content() and format_page_content() exist for
+a future "deep-dive" phase but are not wired into the chat pipeline — so the
+assistant cannot "load" full procedure pages. It can only triage and cite
+page numbers; for full steps the user must open the PDF to those pages.
 """
 
 import logging
