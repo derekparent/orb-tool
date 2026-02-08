@@ -826,3 +826,251 @@ class TestChatSessionModel:
             assert "id" in d
             assert "messages" in d
             assert len(d["messages"]) == 1
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: _extract_citations
+# ─────────────────────────────────────────────────────────────────
+
+class TestExtractCitations:
+    """Test citation extraction from assistant text."""
+
+    def test_single_citation(self):
+        from services.chat_service import _extract_citations
+
+        text = "See [kenr5403-00_testing, p.48] for details."
+        result = _extract_citations(text)
+        assert result == [("kenr5403-00_testing", 48)]
+
+    def test_multiple_citations(self):
+        from services.chat_service import _extract_citations
+
+        text = (
+            "Pages [kenr5403-00_testing, p.48] and "
+            "[senr9773-00_troubleshooting, p.112] cover this."
+        )
+        result = _extract_citations(text)
+        assert len(result) == 2
+        assert result[0] == ("kenr5403-00_testing", 48)
+        assert result[1] == ("senr9773-00_troubleshooting", 112)
+
+    def test_deduplicates(self):
+        from services.chat_service import _extract_citations
+
+        text = (
+            "[doc.pdf, p.10] and again [doc.pdf, p.10] "
+            "plus [doc.pdf, p.11]"
+        )
+        result = _extract_citations(text)
+        assert len(result) == 2
+        assert result[0] == ("doc.pdf", 10)
+        assert result[1] == ("doc.pdf", 11)
+
+    def test_empty_text(self):
+        from services.chat_service import _extract_citations
+
+        assert _extract_citations("") == []
+        assert _extract_citations("No citations here.") == []
+
+    def test_citation_with_spaces(self):
+        from services.chat_service import _extract_citations
+
+        text = "[kenr5403-00_testing, p. 48]"
+        result = _extract_citations(text)
+        assert result == [("kenr5403-00_testing", 48)]
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: _should_deep_dive
+# ─────────────────────────────────────────────────────────────────
+
+class TestShouldDeepDive:
+    """Test deep-dive detection logic."""
+
+    HISTORY_WITH_CITATIONS = [
+        {"role": "user", "content": "valve lash 3516"},
+        {
+            "role": "assistant",
+            "content": (
+                "I found results on pages [kenr5403-00_testing, p.48] "
+                "and [kenr5403-00_testing, p.49] covering the valve lash "
+                "procedure. [senr9773-00_troubleshooting, p.112] covers "
+                "troubleshooting."
+            ),
+        },
+    ]
+
+    @patch("services.chat_service.get_pages_content")
+    def test_triggers_on_specific_page_ref(self, mock_get_pages):
+        from services.chat_service import _should_deep_dive
+
+        mock_get_pages.return_value = [
+            {"content": "Step 1...", "filename": "kenr5403-00_testing",
+             "page_num": 48, "equipment": "3516", "doc_type": "testing"}
+        ]
+        result = _should_deep_dive("tell me about page 48", self.HISTORY_WITH_CITATIONS)
+        assert result is not None
+        assert len(result) == 1
+        mock_get_pages.assert_called_once_with("kenr5403-00_testing", [48])
+
+    @patch("services.chat_service.get_pages_content")
+    def test_triggers_on_vague_ref(self, mock_get_pages):
+        from services.chat_service import _should_deep_dive
+
+        def fake_get_pages(filename, page_nums):
+            return [
+                {"content": f"p{pn}", "filename": filename, "page_num": pn,
+                 "equipment": "3516", "doc_type": "testing"}
+                for pn in page_nums
+            ]
+        mock_get_pages.side_effect = fake_get_pages
+
+        result = _should_deep_dive("tell me more", self.HISTORY_WITH_CITATIONS)
+        assert result is not None
+        assert len(result) == 3  # capped at MAX_DEEP_DIVE_PAGES
+
+    def test_no_trigger_on_new_topic(self):
+        from services.chat_service import _should_deep_dive
+
+        result = _should_deep_dive(
+            "what about oil filters?", self.HISTORY_WITH_CITATIONS
+        )
+        assert result is None
+
+    def test_no_trigger_on_empty_history(self):
+        from services.chat_service import _should_deep_dive
+
+        assert _should_deep_dive("tell me more", []) is None
+
+    def test_no_trigger_when_no_citations(self):
+        from services.chat_service import _should_deep_dive
+
+        history = [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "Hi, how can I help?"},
+        ]
+        assert _should_deep_dive("tell me more", history) is None
+
+    def test_specific_page_not_in_citations_falls_through(self):
+        from services.chat_service import _should_deep_dive
+
+        # Page 99 not cited → returns None (falls through to search)
+        result = _should_deep_dive("page 99", self.HISTORY_WITH_CITATIONS)
+        assert result is None
+
+    @patch("services.chat_service.get_pages_content")
+    def test_caps_at_max_pages(self, mock_get_pages):
+        from services.chat_service import _should_deep_dive, MAX_DEEP_DIVE_PAGES
+
+        # History with 5 citations
+        history = [
+            {"role": "user", "content": "test"},
+            {
+                "role": "assistant",
+                "content": (
+                    "[doc, p.1] [doc, p.2] [doc, p.3] "
+                    "[doc, p.4] [doc, p.5]"
+                ),
+            },
+        ]
+        mock_get_pages.return_value = [
+            {"content": f"p{i}", "filename": "doc", "page_num": i,
+             "equipment": "3516", "doc_type": "testing"}
+            for i in range(1, MAX_DEEP_DIVE_PAGES + 1)
+        ]
+        result = _should_deep_dive("walk me through those pages", history)
+        assert result is not None
+        # get_pages_content called with at most MAX_DEEP_DIVE_PAGES page nums
+        call_args = mock_get_pages.call_args
+        assert len(call_args[0][1]) <= MAX_DEEP_DIVE_PAGES
+
+    @patch("services.chat_service.get_pages_content")
+    def test_empty_page_content_returns_none(self, mock_get_pages):
+        from services.chat_service import _should_deep_dive
+
+        mock_get_pages.return_value = []
+        result = _should_deep_dive("tell me more", self.HISTORY_WITH_CITATIONS)
+        assert result is None
+
+
+# ─────────────────────────────────────────────────────────────────
+# Integration Test: Deep-dive in chat pipeline
+# ─────────────────────────────────────────────────────────────────
+
+class TestDeepDiveIntegration:
+    """Test that deep-dive context flows through to LLM."""
+
+    @patch("services.chat_service.get_llm_service")
+    @patch("services.chat_service.get_pages_content")
+    def test_deep_dive_sends_page_content_to_llm(self, mock_get_pages, mock_get_llm):
+        from services.chat_service import get_chat_response
+
+        # Mock LLM
+        mock_llm = MagicMock()
+        mock_llm.count_tokens.return_value = 100
+        mock_llm.complete.return_value = "Here's the procedure walkthrough..."
+        mock_get_llm.return_value = mock_llm
+
+        # Mock page content
+        mock_get_pages.return_value = [
+            {
+                "content": "Step 1: Remove valve cover.",
+                "filename": "kenr5403-00_testing",
+                "page_num": 48,
+                "equipment": "3516",
+                "doc_type": "testing",
+            }
+        ]
+
+        history = [
+            {"role": "user", "content": "3516 valve lash"},
+            {
+                "role": "assistant",
+                "content": (
+                    "I found the valve lash procedure in "
+                    "[kenr5403-00_testing, p.48]."
+                ),
+            },
+        ]
+
+        result = get_chat_response("walk me through the procedure", history)
+
+        assert result == "Here's the procedure walkthrough..."
+
+        # Verify LLM was called with <page_content> context
+        call_args = mock_llm.complete.call_args
+        system_prompt = call_args[0][0]
+        assert "<page_content>" in system_prompt
+        assert "Step 1: Remove valve cover." in system_prompt
+        # Actual search results context uses query= attr; should not be present
+        assert '<search_results query=' not in system_prompt
+
+    @patch("services.chat_service.get_llm_service")
+    @patch("services.chat_service._search_with_fallback")
+    def test_new_topic_uses_search(self, mock_search, mock_get_llm):
+        from services.chat_service import get_chat_response
+
+        # Mock LLM
+        mock_llm = MagicMock()
+        mock_llm.count_tokens.return_value = 100
+        mock_llm.complete.return_value = "Here are oil filter results..."
+        mock_get_llm.return_value = mock_llm
+
+        mock_search.return_value = (
+            [{"filename": "doc", "page_num": 1, "equipment": "3516",
+              "doc_type": "testing", "snippet": "oil filter", "authority": "primary", "score": 1.0}],
+            [],
+        )
+
+        history = [
+            {"role": "user", "content": "3516 valve lash"},
+            {
+                "role": "assistant",
+                "content": "Found valve lash in [kenr5403-00_testing, p.48].",
+            },
+        ]
+
+        # New topic → no deep-dive pattern match → search
+        result = get_chat_response("what about oil filters?", history)
+        assert result == "Here are oil filter results..."
+        mock_search.assert_called_once()

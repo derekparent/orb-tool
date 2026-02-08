@@ -16,6 +16,7 @@ from services.manuals_service import (
     list_cards,
     get_index_stats,
     get_tag_facets,
+    load_manuals_database,
     log_search,
     open_pdf_to_page,
     is_manuals_db_available,
@@ -189,6 +190,67 @@ def open_pdf():
             }), 500
 
     return jsonify({"status": "error", "message": "No file specified"}), 400
+
+
+@manuals_bp.route("/open-by-name")
+@login_required
+def open_pdf_by_name():
+    """Open PDF by filename (resolved from DB) at specific page.
+
+    Chat citations only have filename + page, not the full filepath.
+    This endpoint looks up the filepath from the pages table and
+    delegates to open_pdf_to_page().
+
+    Query params:
+        filename: Document filename (e.g. 'kenr5403-00_3516-testing-&-adjusting')
+        page: Page number (default 1)
+    """
+    filename = request.args.get("filename", "").strip()
+    page = request.args.get("page", "1")
+
+    if not filename:
+        return jsonify({"status": "error", "message": "No filename specified"}), 400
+
+    try:
+        page_num = int(page)
+    except ValueError:
+        page_num = 1
+
+    # Resolve filepath from DB
+    conn = load_manuals_database()
+    if not conn:
+        return jsonify({
+            "status": "error",
+            "message": "Manuals database not available"
+        }), 500
+
+    try:
+        row = conn.execute(
+            "SELECT filepath FROM pages WHERE filename = ? LIMIT 1",
+            (filename,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return jsonify({
+            "status": "error",
+            "message": f"Document '{filename}' not found in database"
+        }), 404
+
+    filepath = row["filepath"] if isinstance(row, dict) else row[0]
+    success = open_pdf_to_page(filepath, page_num)
+
+    if success:
+        return jsonify({
+            "status": "ok",
+            "message": f"Opened {filename} at page {page_num}"
+        })
+    else:
+        return jsonify({
+            "status": "error",
+            "message": "Failed to open PDF (macOS Preview required)"
+        }), 500
 
 
 # Template filter for getting filename from path

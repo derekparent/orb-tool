@@ -549,8 +549,25 @@
         return frag;
     }
 
-    // Inline formatting: **bold**, `code`, [citation, p.XX] (clickable links to search)
-    var searchBaseUrl = '{{ url_for("manuals.search") }}';
+    // Inline formatting: **bold**, `code`, [citation, p.XX] (clickable → open PDF)
+    var openByNameUrl = '{{ url_for("manuals.open_pdf_by_name") }}';
+
+    function openPdfByName(filename, page) {
+        fetch(openByNameUrl + '?filename=' + encodeURIComponent(filename) + '&page=' + encodeURIComponent(page))
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.status === 'ok') {
+                    statusEl.textContent = data.message;
+                } else {
+                    statusEl.textContent = data.message || 'Failed to open PDF';
+                }
+                setTimeout(function() { statusEl.textContent = ''; }, 4000);
+            })
+            .catch(function() {
+                statusEl.textContent = 'Failed to open PDF';
+                setTimeout(function() { statusEl.textContent = ''; }, 4000);
+            });
+    }
 
     function formatInline(text) {
         var frag = document.createDocumentFragment();
@@ -570,13 +587,20 @@
                 code.textContent = m[4];
                 frag.appendChild(code);
             } else if (m[5]) {
-                // Citation: link back to search page with document name
+                // Citation: click opens PDF at page via Preview
                 var cite = document.createElement('a');
                 cite.className = 'citation';
                 cite.textContent = '[' + m[6] + ']';
                 var docName = m[6].split(',')[0].trim();
-                cite.setAttribute('href', searchBaseUrl + '?q=' + encodeURIComponent(docName));
-                cite.setAttribute('title', 'Search for this document');
+                var pageNum = m[7];
+                cite.setAttribute('href', '#');
+                cite.setAttribute('title', 'Open PDF at page ' + pageNum);
+                (function(fn, pg) {
+                    cite.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        openPdfByName(fn, pg);
+                    });
+                })(docName, pageNum);
                 frag.appendChild(cite);
             }
             last = re.lastIndex;

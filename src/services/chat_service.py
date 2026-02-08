@@ -4,11 +4,10 @@ Chat Service — Context assembly and conversation management.
 Orchestrates the RAG pipeline: query → search → context → LLM → response.
 Manages conversation history and token budgets.
 
-Context is snippets-only: we send search_manuals() snippets (short excerpts),
-not full page text. get_pages_content() and format_page_content() exist for
-a future "deep-dive" phase but are not wired into the chat pipeline — so the
-assistant cannot "load" full procedure pages. It can only triage and cite
-page numbers; for full steps the user must open the PDF to those pages.
+Two context modes:
+  1. Triage (Phase 1): search snippets via search_manuals() — the default.
+  2. Deep-dive (Phase 2): full page content via get_pages_content() when a
+     follow-up references citations from the previous assistant response.
 """
 
 import logging
@@ -17,8 +16,18 @@ from collections.abc import Iterator
 from typing import Optional
 
 from services.llm_service import LLMService, LLMServiceError, get_llm_service
-from services.manuals_service import get_context_for_llm, search_manuals, search_cards
-from prompts.manuals_assistant import format_search_results, format_card_results, build_messages
+from services.manuals_service import (
+    get_context_for_llm,
+    get_pages_content,
+    search_manuals,
+    search_cards,
+)
+from prompts.manuals_assistant import (
+    build_messages,
+    format_card_results,
+    format_page_content,
+    format_search_results,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +121,116 @@ _PHRASE_SYNONYMS = {
 
 # Minimum results needed from AND pass before falling back to OR.
 _MIN_AND_RESULTS = 3
+
+# ── Deep-dive (Phase 2) detection ────────────────────────────────
+
+# Regex matching citation format: [filename, p.XX]
+_CITATION_PATTERN = re.compile(
+    r"\[([^\],]+),\s*p\.?\s*(\d+)\]"
+)
+
+# Patterns that signal the user wants to dive into cited pages.
+# Specific: mentions a page number. Vague: references "those pages", etc.
+_DEEP_DIVE_PATTERNS = re.compile(
+    r"(?i)"
+    r"(?:page\s+\d+)"
+    r"|(?:those\s+pages)"
+    r"|(?:the\s+procedure)"
+    r"|(?:walk\s+me\s+through)"
+    r"|(?:tell\s+me\s+more)"
+    r"|(?:go\s+(?:into|through)\s+(?:more\s+)?detail)"
+    r"|(?:explain\s+(?:that|those|the\s+steps))"
+    r"|(?:what\s+(?:does|do)\s+(?:that|those|the)\s+(?:page|step))"
+    r"|(?:break\s+(?:that|it)\s+down)"
+    r"|(?:more\s+(?:detail|info|information)\s+(?:on|about))"
+)
+
+# Specific page reference in user query: "page 48", "page 48-49"
+_PAGE_REF_PATTERN = re.compile(r"(?i)page\s+(\d+)")
+
+# Max pages to fetch for deep-dive (OCR pages ~800-1200 tokens each)
+MAX_DEEP_DIVE_PAGES = 3
+
+
+def _extract_citations(text: str) -> list[tuple[str, int]]:
+    """Extract (filename, page_num) pairs from assistant text, deduped.
+
+    Parses citations in the format [filename, p.XX].
+
+    Returns:
+        Deduplicated list of (filename, page_num) tuples, preserving order.
+    """
+    seen: set[tuple[str, int]] = set()
+    result: list[tuple[str, int]] = []
+    for match in _CITATION_PATTERN.finditer(text):
+        filename = match.group(1).strip()
+        page_num = int(match.group(2))
+        key = (filename, page_num)
+        if key not in seen:
+            seen.add(key)
+            result.append(key)
+    return result
+
+
+def _should_deep_dive(
+    query: str,
+    history: list[dict],
+) -> Optional[list[dict]]:
+    """Detect deep-dive intent and return page content if triggered.
+
+    Requires BOTH:
+      1. Last assistant message has [filename, p.XX] citations
+      2. User query matches a deep-dive pattern
+
+    Specific pages ("page 48") → match against citations.
+    Vague ("the procedure") → use all cited pages (capped at MAX_DEEP_DIVE_PAGES).
+
+    Returns:
+        List of page content dicts from get_pages_content(), or None.
+    """
+    if not history:
+        return None
+
+    # Find last assistant message
+    last_assistant = None
+    for msg in reversed(history):
+        if msg.get("role") == "assistant":
+            last_assistant = msg["content"]
+            break
+    if not last_assistant:
+        return None
+
+    citations = _extract_citations(last_assistant)
+    if not citations:
+        return None
+
+    if not _DEEP_DIVE_PATTERNS.search(query):
+        return None
+
+    # Check for specific page reference
+    page_ref = _PAGE_REF_PATTERN.search(query)
+    if page_ref:
+        target_page = int(page_ref.group(1))
+        # Filter citations to matching page(s)
+        matched = [(fn, pn) for fn, pn in citations if pn == target_page]
+        if not matched:
+            return None  # Page not in citations → fall through to search
+        targets = matched[:MAX_DEEP_DIVE_PAGES]
+    else:
+        # Vague reference → use all cited pages, capped
+        targets = citations[:MAX_DEEP_DIVE_PAGES]
+
+    # Group by filename for batch fetching
+    pages_by_file: dict[str, list[int]] = {}
+    for fn, pn in targets:
+        pages_by_file.setdefault(fn, []).append(pn)
+
+    all_pages: list[dict] = []
+    for filename, page_nums in pages_by_file.items():
+        pages = get_pages_content(filename, page_nums)
+        all_pages.extend(pages)
+
+    return all_pages if all_pages else None
 
 
 class ChatServiceError(Exception):
@@ -378,17 +497,27 @@ def get_chat_response(
     # Trim history to max turns
     trimmed_history = _trim_history(history, max_turns, llm)
 
-    # Two-pass search: AND first, OR fallback; also searches cards
-    context_results, card_results = _search_with_fallback(query, resolved_equipment, limit=10)
-    context_str = format_search_results(
-        context_results, query, equipment=resolved_equipment
-    )
-    cards_str = format_card_results(card_results)
-    if cards_str:
-        context_str = f"{context_str}\n\n{cards_str}"
+    # Phase 2 deep-dive: if follow-up references cited pages, load full content
+    deep_dive_pages = _should_deep_dive(query, trimmed_history)
+
+    if deep_dive_pages:
+        context_str = format_page_content(deep_dive_pages)
+        effective_budget = max_context_tokens * 2
+    else:
+        # Phase 1 triage: two-pass search + cards
+        context_results, card_results = _search_with_fallback(
+            query, resolved_equipment, limit=10
+        )
+        context_str = format_search_results(
+            context_results, query, equipment=resolved_equipment
+        )
+        cards_str = format_card_results(card_results)
+        if cards_str:
+            context_str = f"{context_str}\n\n{cards_str}"
+        effective_budget = max_context_tokens
 
     # Trim context if over budget
-    context_str = _trim_to_token_budget(context_str, max_context_tokens, llm)
+    context_str = _trim_to_token_budget(context_str, effective_budget, llm)
 
     # Build messages — original query goes to LLM, not the keyword extraction
     system, messages = build_messages(context_str, trimmed_history, query)
@@ -426,15 +555,26 @@ def stream_chat_response(
 
     trimmed_history = _trim_history(history, max_turns, llm)
 
-    # Two-pass search: AND first, OR fallback; also searches cards
-    context_results, card_results = _search_with_fallback(query, resolved_equipment, limit=10)
-    context_str = format_search_results(
-        context_results, query, equipment=resolved_equipment
-    )
-    cards_str = format_card_results(card_results)
-    if cards_str:
-        context_str = f"{context_str}\n\n{cards_str}"
-    context_str = _trim_to_token_budget(context_str, max_context_tokens, llm)
+    # Phase 2 deep-dive: if follow-up references cited pages, load full content
+    deep_dive_pages = _should_deep_dive(query, trimmed_history)
+
+    if deep_dive_pages:
+        context_str = format_page_content(deep_dive_pages)
+        effective_budget = max_context_tokens * 2
+    else:
+        # Phase 1 triage: two-pass search + cards
+        context_results, card_results = _search_with_fallback(
+            query, resolved_equipment, limit=10
+        )
+        context_str = format_search_results(
+            context_results, query, equipment=resolved_equipment
+        )
+        cards_str = format_card_results(card_results)
+        if cards_str:
+            context_str = f"{context_str}\n\n{cards_str}"
+        effective_budget = max_context_tokens
+
+    context_str = _trim_to_token_budget(context_str, effective_budget, llm)
 
     # Build messages — original query goes to LLM, not the keyword extraction
     system, messages = build_messages(context_str, trimmed_history, query)
