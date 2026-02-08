@@ -60,6 +60,17 @@ _STOP_WORDS = frozenset({
 # BM25 naturally ranks pages with more matching terms higher.
 _MAX_AND_TERMS = 3
 
+# Synonym expansions for common engineer terms — improves recall when manuals
+# use different wording (e.g. "clearance" vs "lash", "protrusion" vs "height")
+_QUERY_SYNONYMS = {
+    "lash": "clearance",
+    "clearance": "lash",
+    "height": "protrusion",
+    "protrusion": "height",
+    "jwac": "jacket water aftercooler",
+    "scac": "seawater charge air cooler",
+}
+
 
 class ChatServiceError(Exception):
     """Raised when the chat service encounters an error."""
@@ -112,12 +123,28 @@ def _extract_search_query(query: str) -> str:
         # Fallback: if everything was stripped, use original
         return query
 
-    if len(keywords) <= _MAX_AND_TERMS:
-        # Short query: implicit AND is fine (precise matching)
-        return " ".join(keywords)
+    # Add synonym alternatives for terms that appear differently in manuals
+    alt_parts = None
+    for i, kw in enumerate(keywords):
+        syn = _QUERY_SYNONYMS.get(kw.lower())
+        if syn:
+            alt_parts = keywords[:i] + [syn] + keywords[i + 1 :]
+            break
 
-    # Long query: use OR for broad recall, let BM25 rank by relevance
-    return " OR ".join(keywords)
+    if len(keywords) <= _MAX_AND_TERMS:
+        # Short query: implicit AND; add OR phrase alternative (e.g. "valve lash" OR "valve clearance")
+        base = " ".join(keywords)
+        if alt_parts:
+            base = f'{base} OR {" ".join(alt_parts)}'
+        return base
+
+    # Long query: OR for broad recall; add synonym terms to OR list
+    or_terms = list(keywords)
+    if alt_parts:
+        for s in alt_parts:
+            if s.lower() not in [t.lower() for t in or_terms]:
+                or_terms.append(s)
+    return " OR ".join(or_terms)
 
 
 def detect_equipment(query: str) -> Optional[str]:

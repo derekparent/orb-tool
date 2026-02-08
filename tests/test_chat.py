@@ -346,10 +346,11 @@ class TestExtractSearchQuery:
     Stop words are stripped and OR is used for >3 content words.
     """
 
-    def test_short_keyword_query_unchanged(self):
+    def test_short_keyword_query_adds_synonym_alternative(self):
         from services.chat_service import _extract_search_query
 
-        assert _extract_search_query("valve lash") == "valve lash"
+        # Synonym expansion: lash -> clearance for manual recall
+        assert _extract_search_query("valve lash") == "valve lash OR valve clearance"
 
     def test_three_keywords_use_and(self):
         from services.chat_service import _extract_search_query
@@ -363,7 +364,8 @@ class TestExtractSearchQuery:
         result = _extract_search_query(
             "What is the valve lash adjustment procedure for the 3516?"
         )
-        assert result == "valve OR lash OR adjustment OR procedure OR 3516"
+        # Synonym expansion adds "clearance" for "lash"
+        assert result == "valve OR lash OR adjustment OR procedure OR 3516 OR clearance"
 
     def test_how_question_strips_stops(self):
         from services.chat_service import _extract_search_query
