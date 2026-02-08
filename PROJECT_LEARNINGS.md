@@ -68,3 +68,8 @@ Manuals Search Testing & Query Handling:
 Datetime Compatibility Fix:
 
 1. **timezone.utc Standardization**: Replacing direct `datetime.UTC` imports with `timezone.utc` keeps timezone-aware defaults while restoring Python 3.10 compatibility across app and test imports.
+
+### 2026-02-08 03:55
+LLM Chat Citations - Page Number Mismatch:
+
+1. **Citations show DB page, LLM reads printed page**: Citation format `[filename, p.82]` uses database page index (sequential in OCR data), but LLM narrative mentions printed page numbers it reads from OCR text (e.g., "Pages 48-49"). This is expected - PDFs have front matter, so PDF page 82 contains printed page 48. Functionality works correctly (PDF opens to right location), just a UX quirk where numbers don't match in the response.
