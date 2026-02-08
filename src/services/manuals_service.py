@@ -682,6 +682,8 @@ def get_pages_content(
     try:
         cursor = conn.cursor()
         placeholders = ",".join("?" * len(page_nums))
+
+        # Exact match first
         cursor.execute(
             f"""
             SELECT filepath, filename, equipment, doc_type, page_num, content
@@ -691,6 +693,23 @@ def get_pages_content(
             """,
             [filename] + list(page_nums),
         )
+        rows = cursor.fetchall()
+
+        # Fallback: LLM abbreviates filenames (drops .pdf, middle segments).
+        # Match on doc ID prefix (e.g. "kenr5403-11-00") which is unique.
+        if not rows:
+            doc_id = re.match(r"^[a-z]+\d+[-_]\d+[-_]\d+", filename)
+            if doc_id:
+                cursor.execute(
+                    f"""
+                    SELECT filepath, filename, equipment, doc_type, page_num, content
+                    FROM pages
+                    WHERE filename LIKE ? AND page_num IN ({placeholders})
+                    ORDER BY page_num
+                    """,
+                    [f"{doc_id.group(0)}%"] + list(page_nums),
+                )
+                rows = cursor.fetchall()
 
         return [
             {
@@ -700,7 +719,7 @@ def get_pages_content(
                 "equipment": row["equipment"],
                 "doc_type": row["doc_type"],
             }
-            for row in cursor.fetchall()
+            for row in rows
         ]
     except sqlite3.OperationalError:
         return []

@@ -4,6 +4,7 @@ Manuals Blueprint - PDF Search and Troubleshooting Cards
 Routes for searching CAT engine documentation integrated into ORB tool.
 """
 
+import re
 from pathlib import Path
 
 from flask import Blueprint, render_template, request, jsonify, current_app
@@ -225,10 +226,21 @@ def open_pdf_by_name():
         }), 500
 
     try:
+        # Exact match first
         row = conn.execute(
             "SELECT filepath FROM pages WHERE filename = ? LIMIT 1",
             (filename,),
         ).fetchone()
+
+        # Fallback: LLM abbreviates filenames (drops .pdf, middle segments).
+        # Match on doc ID prefix (e.g. "kenr5403-11-00") which is unique.
+        if not row:
+            doc_id = re.match(r"^[a-z]+\d+[-_]\d+[-_]\d+", filename)
+            if doc_id:
+                row = conn.execute(
+                    "SELECT filepath FROM pages WHERE filename LIKE ? LIMIT 1",
+                    (f"{doc_id.group(0)}%",),
+                ).fetchone()
     finally:
         conn.close()
 

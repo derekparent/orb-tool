@@ -879,6 +879,41 @@ class TestExtractCitations:
         result = _extract_citations(text)
         assert result == [("kenr5403-00_testing", 48)]
 
+    def test_page_range_hyphen(self):
+        from services.chat_service import _extract_citations
+
+        text = "[kenr5403-00_testing, p.48-49]"
+        result = _extract_citations(text)
+        assert result == [("kenr5403-00_testing", 48)]
+
+    def test_page_range_en_dash(self):
+        from services.chat_service import _extract_citations
+
+        text = "[kenr5403-00_testing, p.48\u201349]"
+        result = _extract_citations(text)
+        assert result == [("kenr5403-00_testing", 48)]
+
+    def test_pp_prefix(self):
+        from services.chat_service import _extract_citations
+
+        text = "[kenr5403-00_testing, pp.48-49]"
+        result = _extract_citations(text)
+        assert result == [("kenr5403-00_testing", 48)]
+
+    def test_real_llm_citation_format(self):
+        """Test with actual citation format observed from live LLM output."""
+        from services.chat_service import _extract_citations
+
+        text = (
+            "The valve lash procedure is covered in "
+            "[kenr5403-11-00_testing-&-adjusting-systems-operations, p.46] "
+            "and [kenr5403-11-00_testing-&-adjusting-systems-operations, p.48-49]."
+        )
+        result = _extract_citations(text)
+        assert len(result) == 2
+        assert result[0][1] == 46
+        assert result[1][1] == 48
+
 
 # ─────────────────────────────────────────────────────────────────
 # Unit Tests: _should_deep_dive

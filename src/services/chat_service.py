@@ -124,9 +124,10 @@ _MIN_AND_RESULTS = 3
 
 # ── Deep-dive (Phase 2) detection ────────────────────────────────
 
-# Regex matching citation format: [filename, p.XX]
+# Regex matching citation format: [filename, p.XX] and variations like
+# [filename, p.48-49], [filename, pp.48-49], [filename, p.48–49]
 _CITATION_PATTERN = re.compile(
-    r"\[([^\],]+),\s*p\.?\s*(\d+)\]"
+    r"\[([^\],]+),\s*pp?\.?\s*(\d+)(?:[–\-]\d+)?\]"
 )
 
 # Patterns that signal the user wants to dive into cited pages.
