@@ -15,6 +15,12 @@ from services.orb_service import ORBService
 from services.fuel_service import FuelService
 from services.ocr_service import parse_end_of_hitch_image
 from logging_config import get_logger, get_audit_logger
+from security import (
+    SecurityConfig, sanitize_input,
+    WeeklySoundingForm, FuelTicketForm, ServiceTankConfigForm,
+    StatusEventForm, EquipmentStatusForm, ImageUploadForm,
+    HitchStartForm, HitchEndForm, DataResetForm
+)
 
 UTC = timezone.utc
 
@@ -54,6 +60,68 @@ def require_role(route_type: str):
                     "success": False,
                     "error": "Access denied. Insufficient privileges."
                 }), 403
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+def _flatten_sounding_data(data: dict) -> dict:
+    """Flatten nested tank sounding format to flat form fields.
+
+    Converts {"tank_17p": {"feet": 1, "inches": 6}} to
+    {"tank_17p_feet": 1, "tank_17p_inches": 6}.
+    """
+    flat = dict(data)
+    for key in ("tank_17p", "tank_17s"):
+        if key in flat and isinstance(flat[key], dict):
+            nested = flat.pop(key)
+            flat[f"{key}_feet"] = nested.get("feet")
+            flat[f"{key}_inches"] = nested.get("inches")
+    return flat
+
+
+def validate_form(form_class):
+    """Decorator to validate form data and sanitize inputs."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if request.content_type and request.content_type.startswith('multipart/form-data'):
+                form = form_class()
+            else:
+                from werkzeug.datastructures import MultiDict
+                data = request.get_json() or {}
+                if form_class is WeeklySoundingForm:
+                    data = _flatten_sounding_data(data)
+                # Use formdata= with MultiDict so WTForms sets raw_data
+                # (needed for InputRequired validators on integer fields)
+                md = MultiDict({k: str(v) for k, v in data.items() if v is not None and not isinstance(v, (dict, list))})
+                form = form_class(formdata=md)
+
+            if not form.validate():
+                errors = {}
+                for field_name, field_errors in form.errors.items():
+                    errors[field_name] = field_errors
+                return jsonify({"error": "Validation failed", "details": errors}), 400
+
+            sanitized_data = {}
+            for field_name, field_value in form.data.items():
+                sanitized_data[field_name] = sanitize_input(field_value)
+
+            request.validated_data = sanitized_data
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+def require_json():
+    """Decorator to ensure request has JSON body."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not request.is_json:
+                return jsonify({"error": "Content-Type must be application/json"}), 400
+            if request.get_json(silent=True) is None:
+                return jsonify({"error": "JSON body required"}), 400
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -101,6 +169,11 @@ def lookup_sounding(tank_id: str):
     if feet is None or inches is None:
         return jsonify({"error": "feet and inches required"}), 400
 
+    if feet < 0 or feet > 50:
+        return jsonify({"error": "feet must be between 0 and 50"}), 400
+    if inches < 0 or inches > 11:
+        return jsonify({"error": "inches must be between 0 and 11"}), 400
+
     try:
         service = get_sounding_service()
         result = service.lookup(tank_id, feet, inches)
@@ -134,6 +207,8 @@ def get_latest_sounding():
 
 @api_bp.route("/soundings", methods=["POST"])
 @require_role("write")
+@require_json()
+@validate_form(WeeklySoundingForm)
 def create_sounding():
     """
     Create a new weekly sounding and generate ORB entries.
@@ -146,15 +221,31 @@ def create_sounding():
         "tank_17p": {"feet": 1, "inches": 6},
         "tank_17s": {"feet": 2, "inches": 3}
     }
+
+    Also accepts flat format from validated form:
+    {
+        "recorded_at": "2025-12-12T10:00:00",
+        "engineer_name": "John Smith",
+        "engineer_title": "Chief Engineer",
+        "tank_17p_feet": 1, "tank_17p_inches": 6,
+        "tank_17s_feet": 2, "tank_17s_inches": 3
+    }
     """
     data = request.get_json()
     if not data:
         return jsonify({"error": "JSON body required"}), 400
 
-    required = ["recorded_at", "engineer_name", "engineer_title", "tank_17p", "tank_17s"]
-    missing = [f for f in required if f not in data]
-    if missing:
-        return jsonify({"error": f"Missing fields: {missing}"}), 400
+    # Support both nested format (original) and flat format (validated form)
+    if "tank_17p" in data:
+        tank_17p_feet = data["tank_17p"]["feet"]
+        tank_17p_inches = data["tank_17p"]["inches"]
+        tank_17s_feet = data["tank_17s"]["feet"]
+        tank_17s_inches = data["tank_17s"]["inches"]
+    else:
+        tank_17p_feet = data.get("tank_17p_feet")
+        tank_17p_inches = data.get("tank_17p_inches")
+        tank_17s_feet = data.get("tank_17s_feet")
+        tank_17s_inches = data.get("tank_17s_inches")
 
     try:
         # Parse date
@@ -163,10 +254,10 @@ def create_sounding():
         # Look up volumes
         service = get_sounding_service()
         result_17p = service.lookup(
-            "17P", data["tank_17p"]["feet"], data["tank_17p"]["inches"]
+            "17P", tank_17p_feet, tank_17p_inches
         )
         result_17s = service.lookup(
-            "17S", data["tank_17s"]["feet"], data["tank_17s"]["inches"]
+            "17S", tank_17s_feet, tank_17s_inches
         )
 
         # Create sounding record
@@ -308,6 +399,8 @@ def get_active_service_tank():
 
 @api_bp.route("/service-tanks/active", methods=["POST"])
 @require_role("write")
+@require_json()
+@validate_form(ServiceTankConfigForm)
 def set_active_service_tank():
     """
     Set the active service tank pair.
@@ -375,6 +468,8 @@ def get_latest_fuel_ticket():
 
 @api_bp.route("/fuel-tickets", methods=["POST"])
 @require_role("write")
+@require_json()
+@validate_form(FuelTicketForm)
 def create_fuel_ticket():
     """
     Create a new daily fuel ticket.
@@ -500,6 +595,8 @@ def get_latest_status_events():
 
 @api_bp.route("/status-events", methods=["POST"])
 @require_role("write")
+@require_json()
+@validate_form(StatusEventForm)
 def create_status_event():
     """
     Create a new status event.
@@ -592,6 +689,8 @@ def get_equipment_status(equipment_id: str):
 
 @api_bp.route("/equipment/<equipment_id>", methods=["POST"])
 @require_role("write")
+@require_json()
+@validate_form(EquipmentStatusForm)
 def update_equipment_status(equipment_id: str):
     """
     Update equipment status.
@@ -783,6 +882,7 @@ def get_full_dashboard():
 
 @api_bp.route("/hitch/parse-image", methods=["POST"])
 @require_role("admin")
+@validate_form(ImageUploadForm)
 def parse_hitch_image():
     """
     Parse an uploaded End of Hitch Sounding Form image.
@@ -796,6 +896,13 @@ def parse_hitch_image():
     file = request.files["image"]
     if file.filename == "":
         return jsonify({"error": "No file selected"}), 400
+
+    # Validate file size
+    file.seek(0, 2)
+    file_size = file.tell()
+    file.seek(0)
+    if file_size > SecurityConfig.MAX_CONTENT_LENGTH:
+        return jsonify({"error": "File too large. Maximum size is 16MB."}), 413
 
     # Read image data
     image_data = file.read()
@@ -899,6 +1006,8 @@ def update_hitch(hitch_id: int):
 
 @api_bp.route("/hitch/start", methods=["POST"])
 @require_role("admin")
+@require_json()
+@validate_form(HitchStartForm)
 def start_new_hitch():
     """
     Start a new hitch with complete End of Hitch Sounding Form data.
@@ -1075,6 +1184,8 @@ def start_new_hitch():
 
 @api_bp.route("/hitch/end", methods=["POST"])
 @require_role("admin")
+@require_json()
+@validate_form(HitchEndForm)
 def create_end_of_hitch():
     """
     Create end-of-hitch record (for printing/handover).
@@ -1173,6 +1284,8 @@ def create_end_of_hitch():
 
 @api_bp.route("/hitch/reset", methods=["POST"])
 @require_role("admin")
+@require_json()
+@validate_form(DataResetForm)
 def reset_all_data():
     """
     Emergency reset - clears ALL data without creating new hitch.

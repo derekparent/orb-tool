@@ -167,19 +167,14 @@ def create_app(config_name: str | None = None) -> Flask:
     # Register blueprints
     from routes.api import api_bp
     from routes.auth import auth_bp
-    from routes.secure_api import secure_api_bp, init_secure_api
     from routes.manuals import manuals_bp
     from routes.chat import chat_bp
 
     # Register all APIs
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(auth_bp, url_prefix="/auth")
-    app.register_blueprint(secure_api_bp, url_prefix="/api/v1")
     app.register_blueprint(manuals_bp)  # url_prefix already set in blueprint
     app.register_blueprint(chat_bp)    # url_prefix set in blueprint (/manuals/chat)
-
-    # Initialize secure API rate limiter with app
-    init_secure_api(app)
 
     # Initialize LLM service (graceful if no API key)
     from services.llm_service import create_llm_service

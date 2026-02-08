@@ -10,8 +10,8 @@ from wtforms import (
     SelectField, TextAreaField, BooleanField, ValidationError
 )
 from wtforms.validators import (
-    DataRequired, Length, NumberRange, Optional as OptionalValidator,
-    Regexp, Email
+    DataRequired, InputRequired, Length, NumberRange,
+    Optional as OptionalValidator, Regexp, Email
 )
 from markupsafe import Markup, escape
 
@@ -93,12 +93,12 @@ class TankLookupForm(FlaskForm):
     """Form for tank sounding lookup."""
     feet = IntegerField(
         "Feet",
-        validators=[DataRequired(), NumberRange(min=0, max=50)],
+        validators=[InputRequired(), NumberRange(min=0, max=50)],
         description="Tank sounding in feet"
     )
     inches = IntegerField(
         "Inches",
-        validators=[DataRequired(), NumberRange(min=0, max=11)],
+        validators=[InputRequired(), NumberRange(min=0, max=11)],
         description="Tank sounding in inches"
     )
 
@@ -108,6 +108,7 @@ class WeeklySoundingForm(FlaskForm):
     recorded_at = DateTimeField(
         "Recorded At",
         validators=[DataRequired()],
+        format="%Y-%m-%dT%H:%M:%S",
         description="When the sounding was recorded"
     )
     engineer_name = StringField(
@@ -124,28 +125,28 @@ class WeeklySoundingForm(FlaskForm):
         validators=[
             DataRequired(),
             Length(min=2, max=100),
-            Regexp(r'^[a-zA-Z\s.-]+$', message="Title can only contain letters, spaces, periods, and hyphens")
+            Regexp(r'^[a-zA-Z0-9\s.-]+$', message="Title can only contain letters, numbers, spaces, periods, and hyphens")
         ],
         description="Title of the engineer"
     )
     tank_17p_feet = IntegerField(
         "Tank 17P Feet",
-        validators=[DataRequired(), NumberRange(min=0, max=50)],
+        validators=[InputRequired(), NumberRange(min=0, max=50)],
         description="Tank 17P sounding in feet"
     )
     tank_17p_inches = IntegerField(
         "Tank 17P Inches",
-        validators=[DataRequired(), NumberRange(min=0, max=11)],
+        validators=[InputRequired(), NumberRange(min=0, max=11)],
         description="Tank 17P sounding in inches"
     )
     tank_17s_feet = IntegerField(
         "Tank 17S Feet",
-        validators=[DataRequired(), NumberRange(min=0, max=50)],
+        validators=[InputRequired(), NumberRange(min=0, max=50)],
         description="Tank 17S sounding in feet"
     )
     tank_17s_inches = IntegerField(
         "Tank 17S Inches",
-        validators=[DataRequired(), NumberRange(min=0, max=11)],
+        validators=[InputRequired(), NumberRange(min=0, max=11)],
         description="Tank 17S sounding in inches"
     )
 
@@ -155,6 +156,7 @@ class FuelTicketForm(FlaskForm):
     ticket_date = DateTimeField(
         "Ticket Date",
         validators=[DataRequired()],
+        format="%Y-%m-%dT%H:%M:%S",
         description="Date of the fuel ticket"
     )
     meter_start = FloatField(
@@ -221,6 +223,7 @@ class StatusEventForm(FlaskForm):
     event_date = DateTimeField(
         "Event Date",
         validators=[DataRequired()],
+        format="%Y-%m-%dT%H:%M:%S",
         description="When the event occurred"
     )
     engineer_name = StringField(

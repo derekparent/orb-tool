@@ -251,7 +251,7 @@ class TestHitchLifecycle:
         with integration_app.app_context():
             response = api_post(client, "/hitch/reset", {})
             assert response.status_code == 400
-            assert "confirm" in response.get_json()["error"].lower()
+            assert "error" in response.get_json()
 
 
 # ============================================================================

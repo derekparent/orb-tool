@@ -32,7 +32,6 @@ class RequestLoggerMiddleware:
     # Sensitive paths that should log less detail
     SENSITIVE_PATHS = frozenset([
         "/auth/login",
-        "/api/v1/auth",
     ])
 
     def __init__(self, app: Flask | None = None, logger_name: str = "orb_tool"):

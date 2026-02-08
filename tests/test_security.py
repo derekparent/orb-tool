@@ -16,11 +16,39 @@ from app import create_app
 from models import db, WeeklySounding, DailyFuelTicket, EquipmentStatus
 
 
+class MockUser:
+    """Mock user for testing."""
+    id = 1
+    username = "test_user"
+    role = "chief_engineer"
+    is_active = True
+    is_authenticated = True
+    is_anonymous = False
+
+    def get_id(self):
+        return str(self.id)
+
+    def can_access_route(self, route_type):
+        return True
+
+
 @pytest.fixture
 def app():
-    """Create test app."""
+    """Create test app with mock authentication."""
+    from flask import g
+    from flask_login import LoginManager
+
     app = create_app("testing")
     app.config["WTF_CSRF_ENABLED"] = False  # Disable CSRF for testing
+
+    # Override the existing login manager's user_loader
+    for fn in app.extensions.get("login_manager", [None] if False else []):
+        pass
+
+    @app.before_request
+    def mock_login():
+        g._login_user = MockUser()
+
     with app.app_context():
         db.create_all()
         yield app
@@ -36,8 +64,15 @@ def client(app):
 @pytest.fixture
 def csrf_app():
     """Create test app with CSRF enabled."""
+    from flask import g
+
     app = create_app("testing")
     app.config["WTF_CSRF_ENABLED"] = True
+
+    @app.before_request
+    def mock_login():
+        g._login_user = MockUser()
+
     with app.app_context():
         db.create_all()
         yield app
@@ -56,32 +91,32 @@ class TestInputValidation:
     def test_tank_lookup_validation(self, client):
         """Test tank lookup parameter validation."""
         # Test missing parameters
-        response = client.get("/api/v1/tanks/17P/lookup")
+        response = client.get("/api/tanks/17P/lookup")
         assert response.status_code == 400
         data = response.get_json()
         assert "required" in data["error"]
 
         # Test invalid parameters (None for non-int)
-        response = client.get("/api/v1/tanks/17P/lookup?feet=abc&inches=xyz")
+        response = client.get("/api/tanks/17P/lookup?feet=abc&inches=xyz")
         assert response.status_code == 400
 
         # Test out of range parameters
-        response = client.get("/api/v1/tanks/17P/lookup?feet=100&inches=50")
+        response = client.get("/api/tanks/17P/lookup?feet=100&inches=50")
         assert response.status_code == 400
 
         # Test valid parameters — slop tanks are small; use values from sounding table
-        response = client.get("/api/v1/tanks/17P/lookup?feet=1&inches=6")
+        response = client.get("/api/tanks/17P/lookup?feet=1&inches=6")
         assert response.status_code == 200
 
     def test_sounding_validation(self, client):
         """Test weekly sounding input validation."""
         # Test missing required fields
-        response = client.post("/api/v1/soundings",
+        response = client.post("/api/soundings",
                              json={})
         assert response.status_code == 400
 
         # Test invalid engineer name (numbers)
-        response = client.post("/api/v1/soundings",
+        response = client.post("/api/soundings",
                              json={
                                  "recorded_at": "2025-01-01T10:00:00",
                                  "engineer_name": "John123",
@@ -94,7 +129,7 @@ class TestInputValidation:
         assert response.status_code == 400
 
         # Test invalid sounding values
-        response = client.post("/api/v1/soundings",
+        response = client.post("/api/soundings",
                              json={
                                  "recorded_at": "2025-01-01T10:00:00",
                                  "engineer_name": "John Doe",
@@ -109,7 +144,7 @@ class TestInputValidation:
     def test_fuel_ticket_validation(self, client):
         """Test fuel ticket input validation."""
         # Test meter end < meter start
-        response = client.post("/api/v1/fuel-tickets",
+        response = client.post("/api/fuel-tickets",
                              json={
                                  "ticket_date": "2025-01-01T08:00:00",
                                  "meter_start": 1000.0,
@@ -125,7 +160,7 @@ class TestInputValidation:
         malicious_script = "<script>alert('xss')</script>"
 
         # Test engineer name sanitization
-        response = client.post("/api/v1/soundings",
+        response = client.post("/api/soundings",
                              json={
                                  "recorded_at": "2025-01-01T10:00:00",
                                  "engineer_name": malicious_script,
@@ -148,7 +183,7 @@ class TestInputValidation:
         # But test with malicious input anyway
         malicious_sql = "'; DROP TABLE weekly_soundings; --"
 
-        response = client.post("/api/v1/soundings",
+        response = client.post("/api/soundings",
                              json={
                                  "recorded_at": "2025-01-01T10:00:00",
                                  "engineer_name": malicious_sql,
@@ -169,7 +204,7 @@ class TestCSRFProtection:
 
     def test_csrf_token_required(self, csrf_client):
         """Test that CSRF token is required for state-changing operations."""
-        response = csrf_client.post("/api/v1/soundings",
+        response = csrf_client.post("/api/soundings",
                                   json={
                                       "recorded_at": "2025-01-01T10:00:00",
                                       "engineer_name": "John Doe",
@@ -185,7 +220,7 @@ class TestCSRFProtection:
 
     def test_get_requests_no_csrf(self, csrf_client):
         """Test that GET requests don't require CSRF tokens."""
-        response = csrf_client.get("/api/v1/tanks")
+        response = csrf_client.get("/api/tanks")
         assert response.status_code == 200
 
 
@@ -202,7 +237,7 @@ class TestRateLimiting:
         assert 429 in app.error_handler_spec[None]
 
         # Verify a normal endpoint still returns 200
-        response = client.get("/api/v1/tanks")
+        response = client.get("/api/tanks")
         assert response.status_code == 200
 
     def test_rate_limit_exceeded(self, client):
@@ -222,7 +257,7 @@ class TestSecurityHeaders:
 
     def test_security_headers_present(self, client):
         """Test that security headers are added to responses."""
-        response = client.get("/api/v1/tanks")
+        response = client.get("/api/tanks")
 
         # Check security headers
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
@@ -233,7 +268,7 @@ class TestSecurityHeaders:
 
     def test_csp_header(self, client):
         """Test Content Security Policy header."""
-        response = client.get("/api/v1/tanks")
+        response = client.get("/api/tanks")
         csp = response.headers.get("Content-Security-Policy")
 
         assert csp is not None
@@ -250,7 +285,7 @@ class TestRequestSizeLimits:
         # Create oversized payload (mock large request)
         large_data = "x" * (17 * 1024 * 1024)  # 17MB (over limit)
 
-        response = client.post("/api/v1/soundings",
+        response = client.post("/api/soundings",
                              data=large_data,
                              content_type="application/json")
 
@@ -274,7 +309,7 @@ class TestFileUploadSecurity:
     def test_file_type_validation(self, client):
         """Test file type validation."""
         # Test invalid file type
-        response = client.post("/api/v1/hitch/parse-image",
+        response = client.post("/api/hitch/parse-image",
                              data={"image": (b"malicious content", "malware.exe")},
                              content_type="multipart/form-data")
 
@@ -292,7 +327,7 @@ class TestFileUploadSecurity:
         with patch('services.ocr_service.parse_end_of_hitch_image') as mock_ocr:
             mock_ocr.return_value = {"test": "result"}
 
-            response = client.post("/api/v1/hitch/parse-image",
+            response = client.post("/api/hitch/parse-image",
                                  data={"image": (valid_image, "test.jpg")},
                                  content_type="multipart/form-data")
 
@@ -305,7 +340,7 @@ class TestEquipmentStatusSecurity:
 
     def test_equipment_id_validation(self, client):
         """Test equipment ID validation."""
-        response = client.post("/api/v1/equipment/INVALID_ID",
+        response = client.post("/api/equipment/INVALID_ID",
                              json={
                                  "status": "online",
                                  "updated_by": "John Doe"
@@ -315,7 +350,7 @@ class TestEquipmentStatusSecurity:
 
     def test_equipment_status_validation(self, client):
         """Test equipment status value validation."""
-        response = client.post("/api/v1/equipment/PME",
+        response = client.post("/api/equipment/PME",
                              json={
                                  "status": "invalid_status",
                                  "updated_by": "John Doe"
@@ -346,7 +381,7 @@ class TestDataResetSecurity:
 
     def test_reset_requires_confirmation(self, client):
         """Test that data reset requires explicit confirmation."""
-        response = client.post("/api/v1/hitch/reset",
+        response = client.post("/api/hitch/reset",
                              json={})
 
         assert response.status_code == 400
@@ -374,7 +409,7 @@ class TestDataResetSecurity:
         assert WeeklySounding.query.count() == 1
 
         # Reset with confirmation
-        response = client.post("/api/v1/hitch/reset",
+        response = client.post("/api/hitch/reset",
                              json={"confirm": True})
 
         assert response.status_code == 200
