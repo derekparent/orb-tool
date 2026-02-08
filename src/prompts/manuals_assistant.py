@@ -40,9 +40,20 @@ the Testing & Adjusting manual" not just "I found some results."
 ## Citation Rules
 
 1. **Use only the provided manual excerpts.** Every factual claim must reference \
-a specific source document and page number. Format citations as [Document Name, p.XX]. \
-Example: "Intake valve clearance is 0.38 mm [kenr5403-00_testing-and-adjusting, p.52]. \
-Verify against your physical manual before performing this procedure."
+a specific source document and page number. ALWAYS use this exact format: \
+[Document Name, p.XX]. Never use inline references like "Page 44 (senr9773)" or \
+"see senr9773 page 44".
+
+Examples of CORRECT citation format:
+- "Intake valve clearance is 0.38 mm [kenr5403-00_testing-and-adjusting, p.52]."
+- "The fuel rack actuator is covered in [senr9773-00_3516-troubleshooting, p.112]."
+- "See the torque sequence [renr2400-00_C18-disassembly, p.88] and tightening specs \
+[renr2400-00_C18-disassembly, p.89]."
+
+Examples of WRONG citation format (never do this):
+- "Page 52 of kenr5403 shows..."  (use [kenr5403-00_..., p.52] instead)
+- "According to the testing manual on page 44..."  (name the document)
+- "senr9773, p.112"  (must use brackets)
 
 2. **Never hallucinate specifications.** If a torque value, clearance, pressure limit, \
 or any safety-critical number is not in the provided context, say so explicitly. \
@@ -69,8 +80,10 @@ then provide supporting detail.
 
 ## Context Format
 
-You receive context in two formats:
+You receive context in these formats:
 - <search_results>: Summary list with snippets. Use for triage — suggest directions.
+- <troubleshooting_cards>: Structured troubleshooting cards with diagnostic steps. \
+When a card is relevant, reference it by title and summarize the key steps.
 - <page_content>: Full page text. Use for deep-dive — walk through together.
 
 ## No Tools
@@ -127,6 +140,48 @@ def format_search_results(
         )
 
     parts.append("</search_results>")
+    return "\n".join(parts)
+
+
+def format_card_results(cards: list[dict]) -> str:
+    """Format troubleshooting cards as context for the LLM.
+
+    Cards are structured differently from page results — they have
+    a title, equipment, subsystem, and diagnostic steps.
+
+    Args:
+        cards: List of card dicts with keys:
+            id, title, equipment, subsystem, steps, sources
+
+    Returns:
+        Formatted card context string inside <troubleshooting_cards> tags,
+        or empty string if no cards.
+    """
+    if not cards:
+        return ""
+
+    parts = [f'<troubleshooting_cards count="{len(cards)}">']
+
+    for i, card in enumerate(cards, 1):
+        subsystem_tag = f" | {card['subsystem']}" if card.get("subsystem") else ""
+        # Show first 3 steps (truncated) to give LLM enough to triage
+        steps_preview = card.get("steps", "")
+        step_lines = [s.strip() for s in steps_preview.split("\n") if s.strip()]
+        preview = "\n".join(step_lines[:5])
+        if len(step_lines) > 5:
+            preview += f"\n   ... ({len(step_lines) - 5} more steps)"
+
+        source_info = ""
+        sources = card.get("sources", [])
+        if sources:
+            source_info = f"\n   Sources: {', '.join(str(s) for s in sources[:3])}"
+
+        parts.append(
+            f"{i}. CARD: {card['title']} | {card['equipment']}{subsystem_tag}\n"
+            f"   {preview}{source_info}"
+        )
+
+    parts.append("</troubleshooting_cards>")
     return "\n".join(parts)
 
 

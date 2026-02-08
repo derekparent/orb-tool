@@ -116,6 +116,52 @@ class TestFormatSearchResults:
 
 
 # ─────────────────────────────────────────────────────────────────
+# Unit Tests: Prompt building — format_card_results
+# ─────────────────────────────────────────────────────────────────
+
+class TestFormatCardResults:
+    """Test troubleshooting card context formatting for LLM."""
+
+    def test_empty_cards_returns_empty(self):
+        from prompts.manuals_assistant import format_card_results
+
+        assert format_card_results([]) == ""
+
+    def test_formats_card_with_steps(self):
+        from prompts.manuals_assistant import format_card_results
+
+        cards = [
+            {
+                "id": "abc123",
+                "title": "Low Oil Pressure Alarm",
+                "equipment": "3516",
+                "subsystem": "lubrication",
+                "steps": "Check oil level\nCheck oil filter\nCheck oil pump",
+                "sources": [{"filename": "doc.pdf", "page": 44}],
+            }
+        ]
+        ctx = format_card_results(cards)
+        assert "<troubleshooting_cards" in ctx
+        assert 'count="1"' in ctx
+        assert "CARD: Low Oil Pressure Alarm" in ctx
+        assert "3516" in ctx
+        assert "lubrication" in ctx
+        assert "Check oil level" in ctx
+
+    def test_multiple_cards(self):
+        from prompts.manuals_assistant import format_card_results
+
+        cards = [
+            {"id": "1", "title": "Card A", "equipment": "3516", "subsystem": None, "steps": "Step 1", "sources": []},
+            {"id": "2", "title": "Card B", "equipment": "C18", "subsystem": "fuel", "steps": "Step A", "sources": []},
+        ]
+        ctx = format_card_results(cards)
+        assert "1. CARD: Card A" in ctx
+        assert "2. CARD: Card B" in ctx
+        assert "</troubleshooting_cards>" in ctx
+
+
+# ─────────────────────────────────────────────────────────────────
 # Unit Tests: Prompt building — format_page_content
 # ─────────────────────────────────────────────────────────────────
 
@@ -343,37 +389,46 @@ class TestExtractSearchQuery:
     """Test conversational query → FTS5 keyword extraction.
 
     The chat input naturally elicits sentences; FTS5 needs keywords.
-    Stop words are stripped and OR is used for >3 content words.
+    AND-first with phrase detection, OR fallback via _extract_broad_query.
     """
 
     def test_short_keyword_query_adds_synonym_alternative(self):
         from services.chat_service import _extract_search_query
 
-        # Synonym expansion: lash -> clearance for manual recall
-        assert _extract_search_query("valve lash") == "valve lash OR valve clearance"
+        # Known phrase "valve lash" is quoted; synonym adds "valve clearance"
+        result = _extract_search_query("valve lash")
+        assert '"valve lash"' in result
+        assert "OR" in result
+        assert "clearance" in result
 
-    def test_three_keywords_use_and(self):
+    def test_three_keywords_with_phrase_detection(self):
         from services.chat_service import _extract_search_query
 
-        # ≤3 content words → implicit AND (precise matching)
-        assert _extract_search_query("3516 fuel rack") == "3516 fuel rack"
+        # "fuel rack" is a known phrase → quoted
+        result = _extract_search_query("3516 fuel rack")
+        assert "3516" in result
+        assert '"fuel rack"' in result
 
-    def test_conversational_query_strips_stops_uses_or(self):
+    def test_conversational_query_strips_stops_uses_and(self):
         from services.chat_service import _extract_search_query
 
+        # AND-first: all terms required (with phrase detection)
         result = _extract_search_query(
             "What is the valve lash adjustment procedure for the 3516?"
         )
-        # Synonym expansion adds "clearance" for "lash"
-        assert result == "valve OR lash OR adjustment OR procedure OR 3516 OR clearance"
+        assert '"valve lash"' in result
+        assert "adjustment" in result
+        assert "3516" in result
 
-    def test_how_question_strips_stops(self):
+    def test_how_question_strips_stops_detects_phrases(self):
         from services.chat_service import _extract_search_query
 
         result = _extract_search_query(
             "How do I check jacket water pressure on C18?"
         )
-        assert result == "check OR jacket OR water OR pressure OR C18"
+        assert '"jacket water"' in result
+        assert "pressure" in result
+        assert "C18" in result
 
     def test_preserves_model_numbers(self):
         from services.chat_service import _extract_search_query
@@ -388,21 +443,125 @@ class TestExtractSearchQuery:
         result = _extract_search_query("what is the")
         assert result == "what is the"
 
-    def test_single_word_passes_through(self):
+    def test_single_word_with_synonym(self):
         from services.chat_service import _extract_search_query
 
-        assert _extract_search_query("turbo") == "turbo"
+        # turbo has synonym turbocharger
+        assert _extract_search_query("turbo") == "turbo OR turbocharger"
 
-    def test_long_keyword_query_uses_or(self):
+    def test_single_word_no_synonym(self):
         from services.chat_service import _extract_search_query
 
-        # Already keyword-style but >3 words → OR for broad recall
+        assert _extract_search_query("actuator") == "actuator"
+
+    def test_long_keyword_query_uses_and_with_phrases(self):
+        from services.chat_service import _extract_search_query
+
+        # Long query now uses AND (precise), not OR
         result = _extract_search_query(
             "3516 fuel rack actuator troubleshooting"
         )
-        assert "OR" in result
         assert "3516" in result
-        assert "fuel" in result
+        assert '"fuel rack"' in result
+        assert "actuator" in result
+
+
+class TestExtractBroadQuery:
+    """Test OR fallback query generation."""
+
+    def test_broad_query_uses_or(self):
+        from services.chat_service import _extract_broad_query
+
+        result = _extract_broad_query(
+            "What is the oil filter replacement procedure?"
+        )
+        assert "OR" in result
+        assert '"oil filter"' in result
+        assert "replacement" in result
+
+    def test_broad_query_adds_synonyms(self):
+        from services.chat_service import _extract_broad_query
+
+        result = _extract_broad_query("valve lash procedure")
+        assert "clearance" in result
+
+    def test_broad_query_single_word(self):
+        from services.chat_service import _extract_broad_query
+
+        # Single word with synonym → OR expansion
+        assert _extract_broad_query("turbo") == "turbo OR turbocharger"
+
+
+class TestDetectPhrases:
+    """Test phrase detection for known compound terms."""
+
+    def test_quotes_known_phrase(self):
+        from services.chat_service import _detect_phrases
+
+        assert _detect_phrases(["oil", "filter"]) == ['"oil filter"']
+
+    def test_preserves_unknown_pair(self):
+        from services.chat_service import _detect_phrases
+
+        assert _detect_phrases(["3516", "actuator"]) == ["3516", "actuator"]
+
+    def test_phrase_with_trailing_word(self):
+        from services.chat_service import _detect_phrases
+
+        assert _detect_phrases(["oil", "filter", "replacement"]) == ['"oil filter"', "replacement"]
+
+    def test_single_word(self):
+        from services.chat_service import _detect_phrases
+
+        assert _detect_phrases(["turbo"]) == ["turbo"]
+
+    def test_empty(self):
+        from services.chat_service import _detect_phrases
+
+        assert _detect_phrases([]) == []
+
+
+class TestSearchWithFallback:
+    """Test two-pass search (AND first, OR fallback)."""
+
+    @patch("services.chat_service.search_cards")
+    @patch("services.chat_service.get_context_for_llm")
+    def test_and_sufficient_no_fallback(self, mock_ctx, mock_cards):
+        from services.chat_service import _search_with_fallback
+
+        mock_ctx.return_value = [{"snippet": "r"}] * 5
+        mock_cards.return_value = []
+        page_results, card_results = _search_with_fallback("valve lash", equipment="3516")
+        assert len(page_results) == 5
+        # Only called once (AND pass)
+        assert mock_ctx.call_count == 1
+
+    @patch("services.chat_service.search_cards")
+    @patch("services.chat_service.get_context_for_llm")
+    def test_and_insufficient_triggers_or(self, mock_ctx, mock_cards):
+        from services.chat_service import _search_with_fallback
+
+        # AND returns 1, OR returns 8
+        mock_ctx.side_effect = [
+            [{"snippet": "r"}],           # AND pass: 1 result
+            [{"snippet": "r"}] * 8,       # OR pass: 8 results
+        ]
+        mock_cards.return_value = []
+        page_results, card_results = _search_with_fallback("oil filter replacement procedure", equipment=None)
+        assert len(page_results) == 8
+        assert mock_ctx.call_count == 2
+
+    @patch("services.chat_service.search_cards")
+    @patch("services.chat_service.get_context_for_llm")
+    def test_returns_card_results(self, mock_ctx, mock_cards):
+        from services.chat_service import _search_with_fallback
+
+        mock_ctx.return_value = [{"snippet": "r"}] * 5
+        mock_cards.return_value = [{"title": "Low Oil Pressure", "equipment": "3516"}]
+        page_results, card_results = _search_with_fallback("oil pressure low", equipment="3516")
+        assert len(page_results) == 5
+        assert len(card_results) == 1
+        assert card_results[0]["title"] == "Low Oil Pressure"
 
 
 # ─────────────────────────────────────────────────────────────────
