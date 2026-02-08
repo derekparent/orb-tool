@@ -203,6 +203,33 @@ a.tag-badge:hover {
     margin-left: var(--space-sm);
 }
 
+.btn-ask-assistant {
+    display: inline-block;
+    margin-left: var(--space-md);
+    padding: var(--space-xs) var(--space-md);
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--bg-elevated, #21262d);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-ask-assistant:hover {
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+@media (max-width: 600px) {
+    .btn-ask-assistant {
+        display: block;
+        margin: var(--space-sm) 0 0 0;
+        text-align: center;
+    }
+}
+
 .results-section {
     margin-bottom: var(--space-xl);
 }
@@ -548,6 +575,10 @@ a.tag-badge:hover {
     <div class="results-summary">
         Found {{ card_results|length + results|length }} results for "<strong>{{ query }}</strong>"
         {% if boost %}<span class="boost-note">(authority boost enabled)</span>{% endif %}
+        {% if results or card_results %}
+        <a href="{{ url_for('chat.chat_page') }}?q={{ query|urlencode }}{% if equipment and equipment != 'All' %}&equipment={{ equipment|urlencode }}{% endif %}"
+           class="btn-ask-assistant">Ask the Assistant</a>
+        {% endif %}
     </div>
     {% endif %}
 

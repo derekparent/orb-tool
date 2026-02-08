@@ -146,6 +146,14 @@
     color: var(--accent-primary);
     font-weight: 500;
     font-size: 0.85em;
+    text-decoration: none;
+    border-bottom: 1px dotted var(--accent-primary);
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.citation:hover {
+    opacity: 0.8;
 }
 
 .thinking {
@@ -541,10 +549,12 @@
         return frag;
     }
 
-    // Inline formatting: **bold**, `code`, [citation, p.XX]
+    // Inline formatting: **bold**, `code`, [citation, p.XX] (clickable links to search)
+    var searchBaseUrl = '{{ url_for("manuals.search") }}';
+
     function formatInline(text) {
         var frag = document.createDocumentFragment();
-        var re = /(\*\*(.+?)\*\*)|(`([^`]+)`)|(\[([^\]]+,\s*p\.\s*\d+)\])/g;
+        var re = /(\*\*(.+?)\*\*)|(`([^`]+)`)|(\[([^\]]+,\s*p\.\s*(\d+))\])/g;
         var last = 0;
         var m;
 
@@ -560,9 +570,13 @@
                 code.textContent = m[4];
                 frag.appendChild(code);
             } else if (m[5]) {
-                var cite = document.createElement('span');
+                // Citation: link back to search page with document name
+                var cite = document.createElement('a');
                 cite.className = 'citation';
                 cite.textContent = '[' + m[6] + ']';
+                var docName = m[6].split(',')[0].trim();
+                cite.setAttribute('href', searchBaseUrl + '?q=' + encodeURIComponent(docName));
+                cite.setAttribute('title', 'Search for this document');
                 frag.appendChild(cite);
             }
             last = re.lastIndex;
@@ -736,6 +750,28 @@
         inputEl.value = el.textContent;
         sendMessage();
     };
+
+    // Auto-submit if query came from search page bridge (?q=...&equipment=...)
+    (function() {
+        var params = new URLSearchParams(window.location.search);
+        var bridgeQuery = params.get('q');
+        var bridgeEquipment = params.get('equipment');
+        if (bridgeQuery) {
+            inputEl.value = bridgeQuery;
+            if (bridgeEquipment && equipmentEl) {
+                for (var i = 0; i < equipmentEl.options.length; i++) {
+                    if (equipmentEl.options[i].value === bridgeEquipment) {
+                        equipmentEl.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            // Clean URL without reloading
+            window.history.replaceState({}, '', window.location.pathname);
+            // Auto-send after brief delay for DOM ready
+            setTimeout(function() { sendMessage(); }, 100);
+        }
+    })();
 })();
 </script>
 {% endif %}
