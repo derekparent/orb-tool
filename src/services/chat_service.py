@@ -122,6 +122,92 @@ _PHRASE_SYNONYMS = {
 # Minimum results needed from AND pass before falling back to OR.
 _MIN_AND_RESULTS = 3
 
+# ── Citation normalization ────────────────────────────────────────
+#
+# LLMs sometimes emit (doc, p.44) or bare doc_name, p.44 instead of
+# the required [doc, p.44] bracket format. These patterns catch
+# confidently-parsable variants and normalize to brackets so UI
+# linkification always works.
+
+# Parenthetical variant: (anything, p.XX) or (anything, pp.XX-YY)
+# The \) immediately after digits ensures page num is last before close
+# paren, preventing false positives like (rated at 125 HP, p.48 of ...).
+_PAREN_CITATION_RE = re.compile(
+    r"\(([^\(\)]+?,\s*pp?\.?\s*\d+(?:[–\-]\d+)?)\)"
+)
+
+# Bare citation where doc name has underscores (unambiguously a filename):
+# kenr5403-00_testing-and-adjusting, p.48 → [kenr5403-00_testing-and-adjusting, p.48]
+_BARE_CITATION_RE = re.compile(
+    r"(?<!\[)"                                  # not preceded by [
+    r"\b([a-zA-Z][\w\-.&]*_[\w\-.&]*[\w]"      # filename: starts with letter, has _
+    r",\s*pp?\.?\s*\d+(?:[–\-]\d+)?)"          # , p.XX or , pp.XX-YY
+    r"(?!\])"                                   # not followed by ]
+)
+
+# Max chars to buffer in streaming normalizer waiting for close paren
+_MAX_CITATION_BUFFER = 200
+
+
+def normalize_citations(text: str) -> str:
+    """Normalize citation variants to bracket format [doc, p.XX].
+
+    Handles:
+      - Parenthetical: (doc, p.44) → [doc, p.44]
+      - Bare with filename: doc_name, p.44 → [doc_name, p.44]
+
+    Non-citation parentheses (e.g. (Step 3), (rated at 125 HP)) are preserved.
+    Already-bracketed citations are unchanged.
+    """
+    text = _PAREN_CITATION_RE.sub(r"[\1]", text)
+    text = _BARE_CITATION_RE.sub(r"[\1]", text)
+    return text
+
+
+def _normalize_citation_stream(stream: Iterator[str]) -> Iterator[str]:
+    """Wrap a token stream, normalizing citation parentheses to brackets.
+
+    Buffers text when an open paren is detected, waiting for the close
+    paren to determine if it's a citation. Flushes the buffer as-is
+    if it exceeds _MAX_CITATION_BUFFER chars (not a citation).
+    Bare citations (no parens) are normalized inline.
+    """
+    buf = ""
+    for chunk in stream:
+        buf += chunk
+        while True:
+            paren_start = buf.find("(")
+            if paren_start == -1:
+                # No open paren — normalize bare citations and yield
+                if buf:
+                    yield _BARE_CITATION_RE.sub(r"[\1]", buf)
+                    buf = ""
+                break
+
+            paren_end = buf.find(")", paren_start)
+            if paren_end == -1:
+                # Open paren but no close — check buffer limit
+                if len(buf) - paren_start > _MAX_CITATION_BUFFER:
+                    # Too long for a citation, flush through the paren
+                    yield _BARE_CITATION_RE.sub(r"[\1]", buf[:paren_start + 1])
+                    buf = buf[paren_start + 1:]
+                    continue
+                # Yield text before paren, keep buffering from paren onward
+                if paren_start > 0:
+                    yield _BARE_CITATION_RE.sub(r"[\1]", buf[:paren_start])
+                    buf = buf[paren_start:]
+                break
+            else:
+                # Both ( and ) found — normalize the segment
+                segment = buf[:paren_end + 1]
+                yield normalize_citations(segment)
+                buf = buf[paren_end + 1:]
+
+    # Flush remaining buffer
+    if buf:
+        yield normalize_citations(buf)
+
+
 # ── Deep-dive (Phase 2) detection ────────────────────────────────
 
 # Regex matching citation format: [filename, p.XX] and variations like
@@ -524,7 +610,7 @@ def get_chat_response(
     system, messages = build_messages(context_str, trimmed_history, query)
 
     try:
-        return llm.complete(system, messages)
+        return normalize_citations(llm.complete(system, messages))
     except LLMServiceError as e:
         logger.error(f"LLM error: {e}")
         raise ChatServiceError(str(e))
@@ -581,7 +667,7 @@ def stream_chat_response(
     system, messages = build_messages(context_str, trimmed_history, query)
 
     try:
-        yield from llm.stream(system, messages)
+        yield from _normalize_citation_stream(llm.stream(system, messages))
     except LLMServiceError as e:
         logger.error(f"LLM streaming error: {e}")
         raise ChatServiceError(str(e))

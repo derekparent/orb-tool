@@ -53,7 +53,9 @@ Examples of CORRECT citation format:
 Examples of WRONG citation format (never do this):
 - "Page 52 of kenr5403 shows..."  (use [kenr5403-00_..., p.52] instead)
 - "According to the testing manual on page 44..."  (name the document)
-- "senr9773, p.112"  (must use brackets)
+- "senr9773, p.112"  (must use brackets: [senr9773, p.112])
+- "(kenr5403-00_testing, p.52)"  (use square brackets [], not parentheses ())
+- "kenr5403-00_testing, p.52"  (must wrap in square brackets [...])
 
 2. **Never hallucinate specifications.** If a torque value, clearance, pressure limit, \
 or any safety-critical number is not in the provided context, say so explicitly. \

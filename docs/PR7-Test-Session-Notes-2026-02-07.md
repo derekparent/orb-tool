@@ -93,14 +93,35 @@ Compared against `.cursor/plans/search-integrated_chat_assistant_e7bdb770.plan.m
 - Call `get_pages_content(filename, page_nums)` → `format_page_content(pages)` → send as context
 - Consider storing last search results in session for page lookups
 
-### P1 — Clickable suggestion chips
+### P1 — Clickable suggestion chips ✅ DONE (PR #11)
 - Detect numbered/bold list items in rendered assistant messages
 - Make clickable: click fills chat input with text (or auto-sends)
 - Frontend heuristic on rendered markdown, not structured LLM output
 
-### P2 — Citation enforcement
-- LLM uses `(Doc, p.XX)` not `[Doc, p.XX]`; UI only linkifies bracket format
-- Options: stronger prompt examples, post-process output to convert parens→brackets
+**Implementation notes (see `enhanceSuggestions()` in `chat.html`):**
+
+Detection uses deterministic reject-first rules:
+
+| Rule | Type | Rationale |
+|------|------|-----------|
+| Text < 5 or > 80 chars | Reject | Too short = noise; too long = explanation |
+| Starts with `Warning:`, `Caution:`, `Note:`, `Step N:` | Reject | Safety/procedure labels |
+| Contains `.citation` element | Reject | Part of walkthrough, not suggestion |
+| Multi-sentence (`.?!` + uppercase) | Reject | Explanatory text, not option |
+| **Starts with imperative verb** | Reject | Procedure step (e.g. "Remove the valve cover") |
+| **Contains spec units** (ft-lbs, psi, mm) | Reject | Measurement = procedure step |
+| All filters pass | Accept | Topic/suggestion (e.g. "Fuel rack procedures") |
+
+Key edge case: "Check valve lash procedure" starts with imperative verb "Check" and would be rejected. This is acceptable — the user can still type it manually, and the false-negative rate is much lower than the previous false-positive rate on procedure steps.
+
+Parenthesized options (e.g. "(3516, C18, C32, or C4.4?)") are split into individual `.suggestion-chip-option` buttons with class-based styling.
+
+All chips are keyboard-accessible: `tabindex="0"`, `role="button"`, Enter/Space activation, `:focus-visible` outline.
+
+### P2 — Citation enforcement ✅ DONE (PR #10)
+- Backend `normalize_citations()` converts `(Doc, p.XX)` → `[Doc, p.XX]`
+- Streaming normalizer `_normalize_citation_stream()` handles token-fragmented input
+- 26 tests covering normalization + streaming + regression on non-citation parens
 
 ### P3 — Run pytest suite
 - Skipped this session; run before merge
