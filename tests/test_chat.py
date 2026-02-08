@@ -1214,3 +1214,214 @@ class TestChatUIImprovements:
         html = self._get_chat_html(app, client)
         assert "showScrollPill" in html
         assert "hideScrollPill" in html
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: normalize_citations
+# ─────────────────────────────────────────────────────────────────
+
+class TestNormalizeCitations:
+    """Test backend citation normalization to bracket format."""
+
+    def test_paren_to_bracket_simple(self):
+        from services.chat_service import normalize_citations
+
+        text = "See (doc_name, p.44) for details."
+        assert normalize_citations(text) == "See [doc_name, p.44] for details."
+
+    def test_paren_to_bracket_page_range(self):
+        from services.chat_service import normalize_citations
+
+        text = "(kenr5403-00_testing, pp.48-49)"
+        assert normalize_citations(text) == "[kenr5403-00_testing, pp.48-49]"
+
+    def test_paren_to_bracket_en_dash(self):
+        from services.chat_service import normalize_citations
+
+        text = "(kenr5403-00_testing, p.48\u201349)"
+        assert normalize_citations(text) == "[kenr5403-00_testing, p.48\u201349]"
+
+    def test_paren_with_space_after_p(self):
+        from services.chat_service import normalize_citations
+
+        text = "(doc_name, p. 44)"
+        assert normalize_citations(text) == "[doc_name, p. 44]"
+
+    def test_bare_citation_with_underscore(self):
+        from services.chat_service import normalize_citations
+
+        text = "See kenr5403-00_testing, p.48 for details."
+        assert normalize_citations(text) == "See [kenr5403-00_testing, p.48] for details."
+
+    def test_bare_citation_full_filename(self):
+        from services.chat_service import normalize_citations
+
+        text = "kenr5403-11-00_testing-&-adjusting-systems-operations, p.46 covers this."
+        expected = "[kenr5403-11-00_testing-&-adjusting-systems-operations, p.46] covers this."
+        assert normalize_citations(text) == expected
+
+    def test_existing_brackets_unchanged(self):
+        from services.chat_service import normalize_citations
+
+        text = "[kenr5403-00_testing, p.48]"
+        assert normalize_citations(text) == "[kenr5403-00_testing, p.48]"
+
+    def test_non_citation_parens_preserved_step(self):
+        """Parenthetical step references must not be corrupted."""
+        from services.chat_service import normalize_citations
+
+        text = "Follow the procedure (Step 3) carefully."
+        assert normalize_citations(text) == "Follow the procedure (Step 3) carefully."
+
+    def test_non_citation_parens_preserved_rating(self):
+        """Engine rating parenthetical must not be corrupted."""
+        from services.chat_service import normalize_citations
+
+        text = "The engine (rated at 125 HP) runs hot."
+        assert normalize_citations(text) == "The engine (rated at 125 HP) runs hot."
+
+    def test_non_citation_parens_preserved_abbreviation(self):
+        """Abbreviation expansions in parens must not be corrupted."""
+        from services.chat_service import normalize_citations
+
+        text = "Check the JWAC (jacket water aftercooler) temperature."
+        assert normalize_citations(text) == "Check the JWAC (jacket water aftercooler) temperature."
+
+    def test_non_citation_parens_preserved_see_also(self):
+        """Prose parentheticals must not be corrupted."""
+        from services.chat_service import normalize_citations
+
+        text = "Tighten bolts (see above) to spec."
+        assert normalize_citations(text) == "Tighten bolts (see above) to spec."
+
+    def test_mixed_citations_and_parens(self):
+        """Mix of citation parens and normal parens."""
+        from services.chat_service import normalize_citations
+
+        text = "The procedure (Step 3) is in (doc_name, p.44) and (see above)."
+        expected = "The procedure (Step 3) is in [doc_name, p.44] and (see above)."
+        assert normalize_citations(text) == expected
+
+    def test_multiple_paren_citations(self):
+        from services.chat_service import normalize_citations
+
+        text = "See (doc_a, p.10) and (doc_b, pp.20-21)."
+        expected = "See [doc_a, p.10] and [doc_b, pp.20-21]."
+        assert normalize_citations(text) == expected
+
+    def test_paren_without_page_preserved(self):
+        """Parens with doc name but no page ref stay as-is."""
+        from services.chat_service import normalize_citations
+
+        text = "The manual (kenr5403) describes this."
+        assert normalize_citations(text) == "The manual (kenr5403) describes this."
+
+    def test_real_world_llm_output(self):
+        """Test with format observed from live LLM responses."""
+        from services.chat_service import normalize_citations
+
+        text = (
+            "The valve lash procedure is covered in "
+            "(kenr5403-11-00_testing-&-adjusting-systems-operations, p.46) "
+            "and the torque specs are in "
+            "(kenr5403-11-00_testing-&-adjusting-systems-operations, p.48-49)."
+        )
+        expected = (
+            "The valve lash procedure is covered in "
+            "[kenr5403-11-00_testing-&-adjusting-systems-operations, p.46] "
+            "and the torque specs are in "
+            "[kenr5403-11-00_testing-&-adjusting-systems-operations, p.48-49]."
+        )
+        assert normalize_citations(text) == expected
+
+    def test_no_mutations_on_clean_text(self):
+        """Plain text without any citation-like patterns passes through."""
+        from services.chat_service import normalize_citations
+
+        text = "Check oil level. Inspect the filter housing."
+        assert normalize_citations(text) == text
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: _normalize_citation_stream
+# ─────────────────────────────────────────────────────────────────
+
+class TestNormalizeCitationStream:
+    """Test streaming citation normalizer handles token-fragmented input."""
+
+    def test_normalizes_split_paren_citation(self):
+        from services.chat_service import _normalize_citation_stream
+
+        chunks = ["See (doc_name", ", p.44) for details."]
+        result = "".join(_normalize_citation_stream(iter(chunks)))
+        assert result == "See [doc_name, p.44] for details."
+
+    def test_normalizes_single_chunk_citation(self):
+        from services.chat_service import _normalize_citation_stream
+
+        chunks = ["See (doc_name, p.44) for details."]
+        result = "".join(_normalize_citation_stream(iter(chunks)))
+        assert result == "See [doc_name, p.44] for details."
+
+    def test_passes_through_normal_text(self):
+        from services.chat_service import _normalize_citation_stream
+
+        chunks = ["Hello ", "world"]
+        result = "".join(_normalize_citation_stream(iter(chunks)))
+        assert result == "Hello world"
+
+    def test_preserves_non_citation_parens(self):
+        from services.chat_service import _normalize_citation_stream
+
+        chunks = ["The engine (rated ", "at 125 HP) runs."]
+        result = "".join(_normalize_citation_stream(iter(chunks)))
+        assert result == "The engine (rated at 125 HP) runs."
+
+    def test_multiple_citations_in_stream(self):
+        from services.chat_service import _normalize_citation_stream
+
+        chunks = ["(doc_a, p.10)", " and ", "(doc_b, p.20)"]
+        result = "".join(_normalize_citation_stream(iter(chunks)))
+        assert result == "[doc_a, p.10] and [doc_b, p.20]"
+
+    def test_bare_citation_in_single_chunk(self):
+        """Bare citations normalize when the full pattern is in one chunk."""
+        from services.chat_service import _normalize_citation_stream
+
+        chunks = ["See kenr5403-00_testing, p.48 for details."]
+        result = "".join(_normalize_citation_stream(iter(chunks)))
+        assert result == "See [kenr5403-00_testing, p.48] for details."
+
+    def test_bare_citation_split_across_chunks(self):
+        """Bare citations split across chunks pass through (known limitation).
+
+        The complete-text normalizer in get_chat_response() catches these.
+        """
+        from services.chat_service import _normalize_citation_stream
+
+        chunks = ["See kenr5403-00_testing", ", p.48 for details."]
+        result = "".join(_normalize_citation_stream(iter(chunks)))
+        # Split bare citation passes through — normalized on full-text save
+        assert "kenr5403-00_testing, p.48" in result
+
+    def test_flushes_long_buffer(self):
+        """Open paren followed by >200 chars without close flushes."""
+        from services.chat_service import _normalize_citation_stream
+
+        long_text = "x" * 250
+        chunks = [f"({long_text}"]
+        result = "".join(_normalize_citation_stream(iter(chunks)))
+        assert result == f"({long_text}"
+
+    def test_empty_stream(self):
+        from services.chat_service import _normalize_citation_stream
+
+        result = "".join(_normalize_citation_stream(iter([])))
+        assert result == ""
+
+    def test_mixed_citation_and_prose_parens(self):
+        from services.chat_service import _normalize_citation_stream
+
+        chunks = ["Check (Step 3) in ", "(doc_x, p.5) now."]
+        result = "".join(_normalize_citation_stream(iter(chunks)))
+        assert result == "Check (Step 3) in [doc_x, p.5] now."
