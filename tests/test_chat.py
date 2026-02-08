@@ -1109,3 +1109,46 @@ class TestDeepDiveIntegration:
         result = get_chat_response("what about oil filters?", history)
         assert result == "Here are oil filter results..."
         mock_search.assert_called_once()
+
+
+# ─────────────────────────────────────────────────────────────────
+# Integration Tests: Suggestion Chips in Chat Template
+# ─────────────────────────────────────────────────────────────────
+
+class TestSuggestionChipsTemplate:
+    """Test that the chat template includes clickable suggestion chip infrastructure."""
+
+    @staticmethod
+    def _get_chat_html(app, client):
+        """Get chat page HTML with LLM mocked as available."""
+        TestChatRoutes._login(app, client)
+        with patch("routes.chat.get_llm_service", return_value=MagicMock()):
+            response = client.get("/manuals/chat/")
+        return response.data.decode()
+
+    def test_chat_template_includes_suggestion_chip_css(self, app, client):
+        """Chat page should include .suggestion-chip CSS class."""
+        html = self._get_chat_html(app, client)
+        assert ".suggestion-chip" in html
+        assert "cursor: pointer" in html
+
+    def test_chat_template_includes_enhance_suggestions_function(self, app, client):
+        """Chat page should include enhanceSuggestions JS function."""
+        html = self._get_chat_html(app, client)
+        assert "enhanceSuggestions" in html
+
+    def test_chat_template_includes_fill_input_function(self, app, client):
+        """Chat page should include fillInput JS function."""
+        html = self._get_chat_html(app, client)
+        assert "fillInput" in html
+
+    def test_chat_template_calls_enhance_after_done(self, app, client):
+        """enhanceSuggestions should be called in the SSE done handler."""
+        html = self._get_chat_html(app, client)
+        assert "enhanceSuggestions(aBubble)" in html
+
+    def test_suggestion_chip_hover_affordance(self, app, client):
+        """Suggestion chips should have visual hover affordance."""
+        html = self._get_chat_html(app, client)
+        assert ".suggestion-chip:hover" in html
+        assert ".suggestion-chip::after" in html

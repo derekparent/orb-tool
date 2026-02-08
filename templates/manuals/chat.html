@@ -362,6 +362,32 @@
     color: var(--text-primary);
 }
 
+/* Clickable suggestion chips in assistant messages */
+.suggestion-chip {
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    margin: -2px -4px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.suggestion-chip:hover {
+    background: rgba(88, 166, 255, 0.12);
+    color: var(--accent-primary);
+}
+
+.suggestion-chip::after {
+    content: ' ↵';
+    font-size: 0.7em;
+    opacity: 0;
+    color: var(--accent-primary);
+    transition: opacity 0.15s;
+}
+
+.suggestion-chip:hover::after {
+    opacity: 0.6;
+}
+
 .unavailable {
     text-align: center;
     padding: var(--space-xl);
@@ -610,6 +636,107 @@
         return frag;
     }
 
+    /* ── Suggestion chip detection ─────────────────────────────── */
+
+    /**
+     * Scan an assistant message bubble for clickable suggestions.
+     *
+     * Detects:
+     *   - Ordered list items (numbered options like "1. Fuel rack procedures")
+     *   - Unordered list items that end with "?" (clarifying questions)
+     *   - Parenthesized option lists like "(3516, C18, C32, or C4.4?)"
+     *
+     * Adds .suggestion-chip class and click handler that fills the input.
+     */
+    function enhanceSuggestions(bubble) {
+        // List items in <ol> and <ul> — these are the primary suggestion format
+        var items = bubble.querySelectorAll('ol > li, ul > li');
+        for (var i = 0; i < items.length; i++) {
+            var li = items[i];
+            var text = li.textContent.trim();
+            // Skip items that are just citations or very short
+            if (text.length < 5) continue;
+            // Skip items that look like procedure steps with safety content
+            if (/^(warning|caution|note):/i.test(text)) continue;
+            // Skip long items (>120 chars) — likely walkthrough steps, not suggestions
+            if (text.length > 120) continue;
+            // Skip items containing citations — part of walkthrough, not suggestion
+            if (li.querySelector('.citation')) continue;
+            // Skip procedure-step patterns: "Step N:", "Remove the...", "Install the..."
+            if (/^step\s+\d/i.test(text)) continue;
+
+            li.classList.add('suggestion-chip');
+            li.setAttribute('title', 'Click to fill input');
+            (function(t) {
+                li.addEventListener('click', function() {
+                    fillInput(t);
+                });
+            })(text);
+        }
+
+        // Standalone questions in paragraphs (e.g. "Which engine? (3516, C18, C32?)")
+        var paras = bubble.querySelectorAll('p');
+        for (var j = 0; j < paras.length; j++) {
+            var p = paras[j];
+            var pText = p.textContent.trim();
+            // Detect question paragraphs — ends with ? and is relatively short
+            if (pText.endsWith('?') && pText.length < 200 && pText.length > 10) {
+                // Extract options from parenthesized lists like "(3516, C18, C32, or C4.4?)"
+                var optMatch = pText.match(/\(([^)]+)\)\s*\??$/);
+                if (optMatch) {
+                    // Split options: "3516, C18, C32, or C4.4?" → ["3516", "C18", "C32", "C4.4"]
+                    var opts = optMatch[1].replace(/\?$/, '').split(/,\s*|\s+or\s+/).map(function(s) { return s.trim(); }).filter(Boolean);
+                    if (opts.length >= 2) {
+                        // Replace paragraph content with clickable option chips
+                        var prefix = pText.slice(0, pText.indexOf('(' + optMatch[1] + ')'));
+                        while (p.firstChild) p.removeChild(p.firstChild);
+                        if (prefix.trim()) {
+                            p.appendChild(document.createTextNode(prefix));
+                        }
+                        for (var k = 0; k < opts.length; k++) {
+                            if (k > 0) p.appendChild(document.createTextNode(' '));
+                            var chip = document.createElement('span');
+                            chip.className = 'suggestion-chip';
+                            chip.textContent = opts[k];
+                            chip.setAttribute('title', 'Click to fill input');
+                            chip.style.display = 'inline-block';
+                            chip.style.padding = '2px 8px';
+                            chip.style.border = '1px solid var(--border-default)';
+                            chip.style.borderRadius = 'var(--radius-sm)';
+                            chip.style.margin = '2px';
+                            (function(t) {
+                                chip.addEventListener('click', function() {
+                                    fillInput(t);
+                                });
+                            })(opts[k]);
+                            p.appendChild(chip);
+                        }
+                        continue;
+                    }
+                }
+                // Otherwise make the whole question clickable
+                p.classList.add('suggestion-chip');
+                p.setAttribute('title', 'Click to fill input');
+                (function(t) {
+                    p.addEventListener('click', function() {
+                        fillInput(t);
+                    });
+                })(pText);
+            }
+        }
+    }
+
+    function fillInput(text) {
+        inputEl.value = text;
+        inputEl.focus();
+        // Trigger resize
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+        // Brief visual flash on input to confirm fill
+        inputEl.style.borderColor = 'var(--accent-primary)';
+        setTimeout(function() { inputEl.style.borderColor = ''; }, 600);
+    }
+
     /* ── Chat logic ──────────────────────────────────────────────── */
 
     window.sendMessage = function() {
@@ -695,6 +822,7 @@
                     if (thinkingEl.parentElement) thinkingEl.remove();
                     while (aBubble.firstChild) aBubble.removeChild(aBubble.firstChild);
                     aBubble.appendChild(renderMarkdownSafe(fullText));
+                    enhanceSuggestions(aBubble);
                     finishStreaming();
                 } else if (evt.type === 'error') {
                     if (thinkingEl.parentElement) thinkingEl.remove();
