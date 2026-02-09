@@ -24,10 +24,12 @@ from security import SecurityConfig
 from models import db, ChatSession
 from services.chat_service import (
     stream_chat_response,
+    stream_web_synthesis,
     get_fallback_results,
     ChatServiceError,
 )
 from services.llm_service import get_llm_service
+from services.web_search_service import get_web_search_service
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/manuals/chat")
 
@@ -38,7 +40,12 @@ chat_bp = Blueprint("chat", __name__, url_prefix="/manuals/chat")
 def chat_page():
     """Chat interface."""
     llm_available = get_llm_service() is not None
-    return render_template("manuals/chat.html", llm_available=llm_available)
+    web_search_enabled = get_web_search_service() is not None
+    return render_template(
+        "manuals/chat.html",
+        llm_available=llm_available,
+        web_search_enabled=web_search_enabled,
+    )
 
 
 @chat_bp.route("/api/message", methods=["POST"])
@@ -131,6 +138,109 @@ def send_message():
 
         except Exception as e:  # Safety net — SSE generators must not crash silently
             current_app.logger_instance.exception(f"Unexpected chat error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': 'An unexpected error occurred'})}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@chat_bp.route("/api/web-search", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_AUTH_PER_MINUTE)
+@login_required
+def web_search():
+    """Search the web and synthesize results with manual context."""
+    data = request.get_json(silent=True)
+    if not data or not data.get("query", "").strip():
+        return jsonify({"error": "Query is required"}), 400
+
+    query = data["query"].strip()
+    session_id = data.get("session_id")
+    equipment = data.get("equipment")
+
+    # Check web search service availability
+    search_service = get_web_search_service()
+    if not search_service:
+        return jsonify({"error": "Web search not configured"}), 503
+
+    # Load session
+    session = None
+    history = []
+    if session_id:
+        session = ChatSession.query.filter_by(
+            id=session_id, user_id=current_user.id
+        ).first()
+        if not session:
+            return jsonify({"error": "Session not found"}), 404
+        history = session.get_messages()
+
+    # Execute web search
+    web_results = search_service.search_online(query, equipment)
+    if not web_results:
+        return jsonify({"type": "error", "message": "No web results found"}), 200
+
+    def generate():
+        nonlocal session
+
+        # Send sources first
+        sources = [{"title": r["title"], "url": r["url"]} for r in web_results]
+        yield f"data: {json.dumps({'type': 'web_sources', 'sources': sources})}\n\n"
+
+        full_response = []
+
+        try:
+            for token in stream_web_synthesis(
+                query=query,
+                web_results=web_results,
+                history=history,
+                equipment=equipment,
+            ):
+                full_response.append(token)
+                yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+
+            # Save to session
+            response_text = "".join(full_response)
+            new_messages = history + [
+                {"role": "user", "content": f"[Web search: {query}]"},
+                {"role": "assistant", "content": response_text},
+            ]
+
+            if session:
+                session.set_messages(new_messages)
+            else:
+                session = ChatSession(user_id=current_user.id)
+                session.set_messages(new_messages)
+                db.session.add(session)
+
+            db.session.commit()
+            yield f"data: {json.dumps({'type': 'done', 'session_id': session.id})}\n\n"
+
+        except ChatServiceError as e:
+            current_app.logger_instance.error(f"Web synthesis error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            current_app.logger_instance.exception(
+                f"Database error during web search: {e}"
+            )
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Database error saving conversation'})}\n\n"
+
+        except (ConnectionError, TimeoutError) as e:
+            current_app.logger_instance.error(
+                f"LLM connection error during web synthesis: {e}"
+            )
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Connection to AI service timed out'})}\n\n"
+
+        except Exception as e:
+            current_app.logger_instance.exception(
+                f"Unexpected web search error: {e}"
+            )
             yield f"data: {json.dumps({'type': 'error', 'message': 'An unexpected error occurred'})}\n\n"
 
     return Response(

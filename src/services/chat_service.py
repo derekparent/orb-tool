@@ -673,6 +673,51 @@ def stream_chat_response(
         raise ChatServiceError(str(e))
 
 
+def stream_web_synthesis(
+    query: str,
+    web_results: list[dict],
+    history: list[dict],
+    equipment: str | None = None,
+) -> Iterator[str]:
+    """Stream a web-augmented synthesis response.
+
+    Takes web search results and conversation history, asks the LLM
+    to synthesize findings with existing manual-based answers.
+
+    Yields:
+        Text delta strings
+
+    Raises:
+        ChatServiceError if LLM service unavailable or fails
+    """
+    llm = get_llm_service()
+    if not llm:
+        raise ChatServiceError("Chat assistant is not configured (missing API key)")
+
+    # Format web results as context
+    web_context_parts = []
+    for r in web_results:
+        web_context_parts.append(f"Source: {r['title']} ({r['url']})\n{r['content']}")
+    web_context = "\n---\n".join(web_context_parts)
+
+    # Build system prompt with web context
+    from prompts.manuals_assistant import WEB_SYNTHESIS_SYSTEM_PROMPT
+
+    system = WEB_SYNTHESIS_SYSTEM_PROMPT.format(web_context=web_context)
+
+    # Build messages from history + current query
+    messages = []
+    for msg in history:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": query})
+
+    try:
+        yield from _normalize_citation_stream(llm.stream(system, messages))
+    except LLMServiceError as e:
+        logger.error(f"LLM streaming error in web synthesis: {e}")
+        raise ChatServiceError(str(e))
+
+
 def get_fallback_results(query: str, equipment: Optional[str] = None) -> list[dict]:
     """Get FTS5 search results as fallback when LLM is unavailable.
 
