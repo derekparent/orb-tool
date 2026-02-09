@@ -28,6 +28,7 @@ from services.chat_service import (
     ChatServiceError,
 )
 from services.llm_service import get_llm_service
+from services.web_search_service import get_web_search_service
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/manuals/chat")
 
@@ -38,7 +39,8 @@ chat_bp = Blueprint("chat", __name__, url_prefix="/manuals/chat")
 def chat_page():
     """Chat interface."""
     llm_available = get_llm_service() is not None
-    return render_template("manuals/chat.html", llm_available=llm_available)
+    web_search_enabled = get_web_search_service() is not None
+    return render_template("manuals/chat.html", llm_available=llm_available, web_search_enabled=web_search_enabled)
 
 
 @chat_bp.route("/api/message", methods=["POST"])
