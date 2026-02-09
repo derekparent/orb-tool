@@ -8,6 +8,7 @@ from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
+from sqlalchemy.exc import OperationalError
 
 # Load environment variables from .env file
 load_dotenv()
@@ -153,7 +154,14 @@ def create_app(config_name: str | None = None) -> Flask:
                 "database": "connected",
                 "version": app.config.get("APP_VERSION", "1.0.0"),
             }), 200
-        except Exception as e:  # Health check must catch all to always return JSON
+        except OperationalError as e:
+            logger.error(f"Health check database error: {e}")
+            return jsonify({
+                "status": "unhealthy",
+                "database": "disconnected",
+                "version": app.config.get("APP_VERSION", "1.0.0"),
+            }), 503
+        except Exception as e:  # Safety net — health endpoint must always return JSON
             logger.error(f"Health check failed: {e}")
             return jsonify({
                 "status": "unhealthy",

@@ -122,7 +122,14 @@ def send_message():
             current_app.logger_instance.exception(f"Database error during chat: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': 'Database error saving conversation'})}\n\n"
 
-        except Exception as e:  # Unexpected non-DB error in SSE generator
+        except (ConnectionError, TimeoutError) as e:
+            current_app.logger_instance.error(f"LLM connection error: {e}")
+            fallback = get_fallback_results(query, equipment=equipment)
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Connection to AI service timed out'})}\n\n"
+            if fallback:
+                yield f"data: {json.dumps({'type': 'fallback', 'results': fallback})}\n\n"
+
+        except Exception as e:  # Safety net — SSE generators must not crash silently
             current_app.logger_instance.exception(f"Unexpected chat error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': 'An unexpected error occurred'})}\n\n"
 
