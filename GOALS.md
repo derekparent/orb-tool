@@ -6,10 +6,11 @@ Update this as your priorities change!
 ## Active Focus
 <!-- What you're working on NOW - MAW prioritizes these -->
 - Page number display — citations show DB page index (p.82) vs printed page (48-49). Cosmetic but confusing. Could map DB→printed page numbers.
-- Frontend tests (JS tests for form validation, API handling, offline behavior)
+- Phase 4: CAT Parts & SIS Integration — audit what's accessible from SIS2 (API? exportable files?), start with part number extraction from manual procedures.
 
 ## Completed
 <!-- Done — moved here for reference -->
+- ~~Phase 3: Parallel Internet Search~~ — Tavily primary (Brave fallback), opt-in "Check online" chip after manual answers, Claude synthesizes manual + web results, SQLite cache (24h TTL), offline graceful degradation. 665 tests (+46 new).
 - ~~Specific exception handling~~ — Added specific catches (TypeError/ValueError, ConnectionError/TimeoutError, OperationalError) before generic Exception safety nets in manuals.py, chat.py, app.py. +8 tests.
 - ~~Rate limiting on all routes~~ — Added @limiter.limit to 11 manuals/chat routes (was only on api.py). Chat send_message gets stricter 5/min AUTH limit. +2 tests.
 - ~~Consolidate duplicate API routes~~ — merged secure_api.py into api.py. 13 duplicate endpoints eliminated, validation/auth unified.
@@ -20,6 +21,7 @@ Update this as your priorities change!
 
 ## Backlog
 <!-- Coming up next - MAW considers these secondary -->
+- Frontend tests (JS tests for form validation, API handling, offline behavior)
 - API documentation (OpenAPI/Swagger spec)
 
 ## Not Now
@@ -36,11 +38,10 @@ Production Oil Record Book + Engine Room Status Board used aboard ship. Mobile-f
 
 The current chat does triage + walkthrough from indexed manuals. The vision is a full **engineering troubleshooting partner** that goes beyond local OCR:
 
-#### Phase 3: Parallel Internet Search
-- After LLM has context from user query + manuals, spin up a **parallel web search** for supplementary info (forums, bulletins, TSBs)
-- LLM suggests: "I found the manual procedure. Want me to also check online for known issues with 3516 injector lash on high-hour engines?"
-- Could use a second, smarter model (e.g. GPT-5 / o3) for the web research leg while primary model handles manual walkthrough
-- Present combined results: manual procedure + real-world gotchas from the field
+#### Phase 3: Parallel Internet Search ✅
+- Tavily web search with Brave fallback, opt-in "Check online" chip, Claude synthesizes manual + web context
+- SQLite cache (24h TTL), offline graceful degradation, domain filtering for CAT/marine sites
+- Plan: `docs/phase-3-web-search-plan.md` | API research: `docs/search-api-compare.md`
 
 #### Phase 4: CAT Parts & SIS Integration
 - **CATPARTS.com integration** — LLM identifies part numbers from manual procedures, offers to check availability: "Do you want me to check CATPARTS.com for availability in your area?"
@@ -71,7 +72,7 @@ The current chat does triage + walkthrough from indexed manuals. The vision is a
 
 ### Reference
 - Original architecture plan: `.cursor/plans/search-integrated_chat_assistant_e7bdb770.plan.md`
-- Current implementation: Phase 1 (triage) + Phase 2 (deep-dive) complete and merged
+- Current implementation: Phase 1 (triage) + Phase 2 (deep-dive) + Phase 3 (web search) complete and merged
 - PR #7 test notes: `docs/PR7-Test-Session-Notes-2026-02-07.md`
 
 ---
