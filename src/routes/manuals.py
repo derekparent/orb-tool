@@ -32,6 +32,9 @@ from services.manuals_service import (
 
 manuals_bp = Blueprint("manuals", __name__, url_prefix="/manuals")
 
+# Pagination constant
+PER_PAGE = 20
+
 
 @manuals_bp.route("/")
 @login_required
@@ -61,6 +64,14 @@ def search():
     systems = request.args.getlist("system")  # Multiple checkbox values
     boost = request.args.get("boost", "0") == "1"
 
+    # Pagination
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        page = 1
+
+    offset = (page - 1) * PER_PAGE
+
     # Convert "All" to None for search functions
     equipment_filter = None if equipment == "All" else equipment
     doc_type_filter = None if doc_type == "All" else doc_type
@@ -75,7 +86,7 @@ def search():
 
     if query:
         try:
-            # Two-pass search strategy:
+            # Two-pass search strategy with pagination:
             # Pass 1: Smart query with stop-word removal and phrase detection (AND)
             smart_query = prepare_smart_query(query)
             results = search_manuals(
@@ -83,12 +94,13 @@ def search():
                 equipment=equipment_filter,
                 doc_type=doc_type_filter,
                 systems=systems_filter,
-                limit=50,
-                boost_primary=boost
+                limit=PER_PAGE,
+                boost_primary=boost,
+                offset=offset
             )
 
-            # Pass 2: If < 3 results, fallback to broad OR query for better recall
-            if len(results) < 3:
+            # Pass 2: If < 3 results on page 1, fallback to broad OR query
+            if len(results) < 3 and page == 1:
                 broad_query = prepare_broad_query(query)
                 if broad_query != smart_query:
                     results = search_manuals(
@@ -96,13 +108,17 @@ def search():
                         equipment=equipment_filter,
                         doc_type=doc_type_filter,
                         systems=systems_filter,
-                        limit=50,
-                        boost_primary=boost
+                        limit=PER_PAGE,
+                        boost_primary=boost,
+                        offset=offset
                     )
 
-            # Search cards using broad query for better recall
+            # Search cards using broad query for better recall (not paginated)
             card_query = prepare_broad_query(query)
             card_results = search_cards(card_query, equipment=equipment_filter, limit=20)
+
+            # Determine if there are more results
+            has_more = len(results) == PER_PAGE
 
             # Log the search
             total_results = len(results) + len(card_results)
@@ -121,6 +137,9 @@ def search():
             current_app.logger_instance.exception(f"Unexpected search error: {e}")
             error = "An unexpected error occurred"
 
+    # Calculate has_more flag
+    has_more = len(results) == PER_PAGE if query else False
+
     return render_template(
         "manuals/search.html",
         db_available=True,
@@ -135,6 +154,9 @@ def search():
         equipment_options=EQUIPMENT_OPTIONS,
         doc_type_options=DOC_TYPE_OPTIONS,
         tag_facets=tag_facets,
+        page=page,
+        per_page=PER_PAGE,
+        has_more=has_more,
     )
 
 

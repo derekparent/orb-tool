@@ -573,7 +573,11 @@ a.tag-badge:hover {
 
     {% if query %}
     <div class="results-summary">
-        Found {{ card_results|length + results|length }} results for "<strong>{{ query }}</strong>"
+        {% if page > 1 %}
+            Showing {{ (page-1)*per_page + 1 }}-{{ (page-1)*per_page + results|length }} results for "<strong>{{ query }}</strong>"
+        {% else %}
+            Found {{ card_results|length + results|length }}{% if has_more %}+{% endif %} results for "<strong>{{ query }}</strong>"
+        {% endif %}
         {% if boost %}<span class="boost-note">(authority boost enabled)</span>{% endif %}
         {% if results or card_results %}
         <a href="{{ url_for('chat.chat_page') }}?q={{ query|urlencode }}{% if equipment and equipment != 'All' %}&equipment={{ equipment|urlencode }}{% endif %}"
@@ -660,6 +664,16 @@ a.tag-badge:hover {
             </div>
         </article>
         {% endfor %}
+
+        {# Load more button #}
+        {% if has_more %}
+        <div style="text-align: center; margin: var(--space-lg) 0;">
+            <a href="?q={{ query|urlencode }}&equipment={{ equipment|urlencode }}&doc_type={{ doc_type|urlencode }}&boost={{ '1' if boost else '0' }}{% for sys in systems %}&system={{ sys|urlencode }}{% endfor %}&page={{ page + 1 }}"
+               class="btn-open" style="display: inline-block; text-decoration: none;">
+                Load more results
+            </a>
+        </div>
+        {% endif %}
     </section>
     {% endif %}
 

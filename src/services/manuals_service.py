@@ -616,6 +616,7 @@ def search_manuals(
     systems: Optional[list[str]] = None,
     limit: int = 50,
     boost_primary: bool = False,
+    offset: int = 0,
 ) -> list[dict]:
     """
     Execute search query against the FTS5 index.
@@ -627,6 +628,7 @@ def search_manuals(
         systems: Filter by subsystem tags (e.g., ["Fuel System", "Cooling System"])
         limit: Max results to return
         boost_primary: If True, apply authority-based score multipliers
+        offset: Number of results to skip (for pagination)
 
     Returns:
         List of result dicts with doc info and snippets
@@ -651,7 +653,7 @@ def search_manuals(
 
         where_clause = " AND ".join(where_parts) if where_parts else "1=1"
 
-        fetch_limit = limit * 3 if boost_primary else limit
+        fetch_limit = (offset + limit) * 3 if boost_primary else offset + limit
 
         # Build base query
         if systems:
@@ -754,7 +756,7 @@ def search_manuals(
         # Always sort by adjusted score (lower = better in BM25)
         results.sort(key=lambda x: x["score"])
 
-        return results[:limit]
+        return results[offset:offset+limit]
 
     except sqlite3.OperationalError:
         return []
