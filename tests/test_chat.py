@@ -13,6 +13,7 @@ Covers:
 import json
 import pytest
 from unittest.mock import patch, MagicMock, call
+from urllib.parse import urlparse
 
 import sys
 from pathlib import Path
@@ -773,6 +774,73 @@ class TestChatRoutes:
         response = client.delete("/manuals/chat/api/sessions/999")
         assert response.status_code == 404
 
+    def test_create_share_link_requires_auth(self, client):
+        """Share-link endpoint should require authentication."""
+        response = client.post(
+            "/manuals/chat/api/share",
+            json={"query": "q", "answer": "a"},
+            content_type="application/json",
+        )
+        assert response.status_code == 302
+
+    def test_create_share_link_validation(self, app, client):
+        """Share-link endpoint should validate required fields."""
+        self._login(app, client)
+        response = client.post(
+            "/manuals/chat/api/share",
+            json={"query": "only query"},
+            content_type="application/json",
+        )
+        assert response.status_code == 400
+
+    def test_create_share_link_success(self, app, client):
+        """Share-link endpoint should return a signed share URL."""
+        self._login(app, client)
+        response = client.post(
+            "/manuals/chat/api/share",
+            json={
+                "query": "3516 valve lash spec",
+                "answer": "Set intake and exhaust to spec from the testing manual.",
+                "equipment": "3516",
+                "session_id": 12,
+            },
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert "share_url" in data
+        assert data["expires_in_days"] == 30
+        assert urlparse(data["share_url"]).path.startswith("/manuals/chat/share/")
+
+    def test_share_page_invalid_token(self, client):
+        """Invalid share token should return 404."""
+        response = client.get("/manuals/chat/share/not-a-valid-token")
+        assert response.status_code == 404
+
+    def test_share_page_renders_shared_content(self, app, client):
+        """Valid share token should render public read-only answer."""
+        with app.app_context():
+            from routes.chat import _share_serializer, SHARE_TOKEN_SALT
+
+            token = _share_serializer().dumps(
+                {
+                    "v": 1,
+                    "q": "How to set valve lash?",
+                    "a": "Use the specified clearances and torque sequence.",
+                    "e": "3516",
+                    "sid": 1,
+                },
+                salt=SHARE_TOKEN_SALT,
+            )
+
+        response = client.get(f"/manuals/chat/share/{token}")
+        assert response.status_code == 200
+        html = response.data.decode()
+        assert "How to set valve lash?" in html
+        assert "Use the specified clearances and torque sequence." in html
+        assert "Ask a Follow-up" in html
+        assert "/auth/login" in html
+
 
 # ─────────────────────────────────────────────────────────────────
 # Integration Test: ChatSession model
@@ -1278,6 +1346,13 @@ class TestChatUIImprovements:
         html = self._get_chat_html(app, client)
         assert "showScrollPill" in html
         assert "hideScrollPill" in html
+
+    def test_share_action_hook_exists(self, app, client):
+        """Chat should include per-answer share action wiring."""
+        html = self._get_chat_html(app, client)
+        assert "addShareAction" in html
+        assert "/manuals/chat/api/share" in html
+        assert "Share link copied" in html
 
 
 # ─────────────────────────────────────────────────────────────────

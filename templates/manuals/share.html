@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Shared Manuals Answer{% endblock %}
+
+{% block head %}
+<style>
+.share-wrap {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: var(--space-lg) var(--space-md);
+}
+
+.share-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+}
+
+.share-badge {
+    display: inline-block;
+    margin-bottom: var(--space-sm);
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border-default);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.share-card h1 {
+    margin: 0 0 var(--space-sm) 0;
+    color: var(--accent-primary);
+    font-size: 1.2rem;
+}
+
+.share-card h2 {
+    margin: 0 0 var(--space-sm) 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.share-meta {
+    margin: 0 0 var(--space-md) 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.share-answer {
+    margin: 0;
+    padding: var(--space-md);
+    background: var(--bg-dark);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.share-actions {
+    margin-top: var(--space-md);
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.share-actions .btn-sm {
+    text-decoration: none;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="share-wrap">
+    <div class="share-card">
+        {% if invalid %}
+            <h1>Share link is invalid</h1>
+            <p class="share-meta">This link may be malformed or no longer available.</p>
+            <div class="share-actions">
+                <a class="btn-sm" href="{{ continue_url }}">Open Manuals Chat</a>
+            </div>
+        {% elif expired %}
+            <h1>Share link expired</h1>
+            <p class="share-meta">For safety, shared answers expire after 30 days.</p>
+            <div class="share-actions">
+                <a class="btn-sm" href="{{ continue_url }}">Open Manuals Chat</a>
+            </div>
+        {% else %}
+            <span class="share-badge">Shared from Ask the Manuals</span>
+            <h1>{{ shared.query }}</h1>
+            {% if shared.equipment %}
+                <p class="share-meta">Engine: {{ shared.equipment }}</p>
+            {% endif %}
+
+            <h2>Answer</h2>
+            <pre class="share-answer">{{ shared.answer }}</pre>
+
+            <div class="share-actions">
+                <a class="btn-sm" href="{{ continue_url }}">Ask a Follow-up</a>
+                <a class="btn-sm" href="{{ url_for('manuals.search', q=shared.query, equipment=shared.equipment or 'All') }}">Search Manuals</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

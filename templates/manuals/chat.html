@@ -143,6 +143,21 @@
     color: var(--accent-primary);
 }
 
+.message-actions {
+    margin-top: var(--space-xs);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-share-answer {
+    min-width: 64px;
+}
+
+.btn-share-answer:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
 .citation {
     color: var(--accent-primary);
     font-weight: 500;
@@ -1023,6 +1038,98 @@
         setTimeout(function() { inputEl.style.borderColor = ''; }, 600);
     }
 
+    function copyToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text);
+        }
+
+        return new Promise(function(resolve, reject) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'absolute';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+
+            try {
+                if (document.execCommand('copy')) {
+                    resolve();
+                } else {
+                    reject(new Error('Clipboard copy failed'));
+                }
+            } catch (err) {
+                reject(err);
+            } finally {
+                document.body.removeChild(ta);
+            }
+        });
+    }
+
+    function addShareAction(messageDiv, queryText, answerText) {
+        if (!messageDiv || !queryText || !answerText || !answerText.trim()) return;
+
+        var existing = messageDiv.querySelector('.message-actions');
+        if (existing && existing.parentElement) {
+            existing.parentElement.removeChild(existing);
+        }
+
+        var actions = document.createElement('div');
+        actions.className = 'message-actions';
+
+        var shareBtn = document.createElement('button');
+        shareBtn.type = 'button';
+        shareBtn.className = 'btn-copy btn-share-answer';
+        shareBtn.textContent = 'Share';
+
+        shareBtn.addEventListener('click', function() {
+            shareBtn.disabled = true;
+            shareBtn.textContent = 'Sharing...';
+
+            fetch('{{ url_for("chat.create_share_link") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({
+                    query: queryText,
+                    answer: answerText,
+                    session_id: sessionId,
+                    equipment: equipmentEl.value || null
+                })
+            }).then(function(response) {
+                return response.json().then(function(data) {
+                    return { ok: response.ok, data: data };
+                });
+            }).then(function(result) {
+                if (!result.ok || !result.data.share_url) {
+                    throw new Error(result.data.error || 'Share failed');
+                }
+
+                return copyToClipboard(result.data.share_url).catch(function() {
+                    window.prompt('Copy this share link:', result.data.share_url);
+                });
+            }).then(function() {
+                statusEl.textContent = 'Share link copied';
+                shareBtn.textContent = 'Copied';
+                setTimeout(function() {
+                    statusEl.textContent = '';
+                    shareBtn.disabled = false;
+                    shareBtn.textContent = 'Share';
+                }, 1600);
+            }).catch(function() {
+                statusEl.textContent = 'Could not create share link';
+                shareBtn.disabled = false;
+                shareBtn.textContent = 'Share';
+                setTimeout(function() { statusEl.textContent = ''; }, 3000);
+            });
+        });
+
+        actions.appendChild(shareBtn);
+        messageDiv.appendChild(actions);
+    }
+
     /* ── Web search chip + results ─────────────────────────────── */
 
     function injectWebSearchChip(messageDiv, query) {
@@ -1171,6 +1278,7 @@
                     }
                     // Success — remove the chip permanently
                     if (chip && chip.parentElement) chip.remove();
+                    addShareAction(wDiv, query, fullText);
 
                 } else if (evt.type === 'error') {
                     var errSpan = document.createElement('div');
@@ -1313,6 +1421,7 @@
                     aBubble.appendChild(renderMarkdownSafe(fullText));
                     enhanceSuggestions(aBubble);
                     injectWebSearchChip(aDiv, query);
+                    addShareAction(aDiv, query, fullText);
                     finishStreaming();
                 } else if (evt.type === 'error') {
                     if (thinkingEl.parentElement) thinkingEl.remove();
@@ -1356,6 +1465,7 @@
                     aBubble.appendChild(renderMarkdownSafe(fullText));
                     enhanceSuggestions(aBubble);
                     injectWebSearchChip(aDiv, query);
+                    addShareAction(aDiv, query, fullText);
                 } else {
                     aDiv.remove();
                 }
