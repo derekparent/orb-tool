@@ -5,6 +5,7 @@ Routes for searching CAT engine documentation integrated into ORB tool.
 """
 
 import re
+import sqlite3
 from pathlib import Path
 
 from flask import Blueprint, render_template, request, jsonify, current_app
@@ -95,9 +96,12 @@ def search():
                 boost_primary=boost
             )
 
-        except Exception as e:
-            current_app.logger_instance.error(f"Search error: {e}")
-            error = str(e)
+        except sqlite3.Error as e:
+            current_app.logger_instance.error(f"Search database error: {e}")
+            error = "Search database error"
+        except Exception as e:  # Unexpected non-DB error
+            current_app.logger_instance.exception(f"Unexpected search error: {e}")
+            error = "An unexpected error occurred"
 
     return render_template(
         "manuals/search.html",

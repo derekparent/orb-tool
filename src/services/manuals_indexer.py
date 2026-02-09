@@ -102,7 +102,11 @@ def extract_pdf_text(filepath: Path) -> list[dict]:
                     "text": text.strip(),
                     "char_count": len(text),
                 })
-    except Exception as e:
+    except (OSError, IOError) as e:
+        print(f"  ERROR reading {filepath.name}: {e}")
+    except (ValueError, TypeError) as e:
+        print(f"  ERROR parsing {filepath.name}: {e}")
+    except Exception as e:  # pdfplumber internal errors
         print(f"  ERROR extracting {filepath.name}: {e}")
     return pages
 

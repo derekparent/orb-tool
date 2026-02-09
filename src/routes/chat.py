@@ -17,6 +17,8 @@ from flask import (
 )
 from flask_login import login_required, current_user
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from models import db, ChatSession
 from services.chat_service import (
     stream_chat_response,
@@ -111,7 +113,12 @@ def send_message():
             if fallback:
                 yield f"data: {json.dumps({'type': 'fallback', 'results': fallback})}\n\n"
 
-        except Exception as e:
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            current_app.logger_instance.exception(f"Database error during chat: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Database error saving conversation'})}\n\n"
+
+        except Exception as e:  # Unexpected non-DB error in SSE generator
             current_app.logger_instance.exception(f"Unexpected chat error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': 'An unexpected error occurred'})}\n\n"
 
