@@ -118,6 +118,43 @@ PHRASE_SYNONYMS = {
     "wiring diagram": ["schematic", "electrical schematic"],
 }
 
+# Stop words to strip from conversational queries before FTS5 search.
+# FTS5 uses implicit AND, so "What is the valve lash procedure" requires
+# ALL words including "What", "is", "the" — returning 0 results.
+# Stripping these converts conversational input to keyword queries.
+STOP_WORDS = frozenset({
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+    "what", "which", "who", "whom", "where", "when", "why", "how",
+    "do", "does", "did", "have", "has", "had", "having",
+    "can", "could", "would", "should", "shall", "will", "may", "might",
+    "i", "me", "my", "we", "our", "you", "your", "it", "its",
+    "this", "that", "these", "those",
+    "of", "in", "on", "at", "to", "for", "with", "from", "by", "about",
+    "if", "then", "so",
+    "tell", "show", "find", "get", "give", "explain", "describe",
+    "need", "want", "look", "help",
+})
+
+# Known compound phrases in marine engineering manuals.
+# When adjacent tokens form a known phrase, we quote them for FTS5 phrase matching.
+# This prevents "oil filter replacement" from matching any page with just "oil".
+KNOWN_PHRASES = frozenset({
+    "oil filter", "fuel filter", "oil cooler", "oil pressure",
+    "fuel pressure", "fuel rack", "fuel system", "fuel pump",
+    "fuel delivery", "fuel supply", "fuel injector",
+    "valve lash", "valve clearance", "valve adjustment", "valve bridge",
+    "valve cover", "valve guide", "valve seat", "valve spring",
+    "jacket water", "charge air", "water pump", "water temperature",
+    "turbo charger", "air filter", "air intake",
+    "cylinder head", "cylinder block", "cylinder liner",
+    "crankshaft seal", "main bearing", "connecting rod",
+    "lube oil", "oil pan",
+    "starting motor", "starting system",
+    "exhaust manifold", "exhaust temperature",
+    "engine control", "control module",
+    "top dead center",
+})
+
 
 def get_manuals_db_path() -> Path:
     """Get path to manuals database."""
@@ -206,6 +243,118 @@ def prepare_search_query(query: str) -> str:
     # Tradeoff: broader OR expansion improves recall but can add false positives.
     expansion_clause = " OR ".join(sorted(expansions))
     return f"({query}) OR ({expansion_clause})"
+
+
+def _tokenize_smart_query(query: str) -> list[str]:
+    """Strip punctuation and stop words, returning content keywords.
+
+    Preserves model numbers like C4.4, C18, 3516.
+    Used by smart query pipeline for natural language queries.
+    """
+    cleaned = query.strip().rstrip("?!.")
+    tokens = re.findall(r"[A-Za-z0-9]+(?:[./-][A-Za-z0-9]+)*", cleaned)
+    keywords = [t for t in tokens if t.lower() not in STOP_WORDS]
+    return keywords if keywords else []
+
+
+def _detect_known_phrases(keywords: list[str]) -> list[str]:
+    """Detect known compound phrases and quote them for FTS5.
+
+    Scans adjacent keyword pairs (bigrams) against KNOWN_PHRASES.
+    Matched pairs are quoted as FTS5 phrases; unmatched tokens pass through.
+
+    Example:
+        ["oil", "filter", "replacement"] → ['"oil filter"', "replacement"]
+        ["3516", "valve", "lash"] → ["3516", '"valve lash"']
+    """
+    if len(keywords) < 2:
+        return list(keywords)
+
+    result: list[str] = []
+    i = 0
+    while i < len(keywords):
+        if i + 1 < len(keywords):
+            bigram = f"{keywords[i].lower()} {keywords[i + 1].lower()}"
+            if bigram in KNOWN_PHRASES:
+                result.append(f'"{keywords[i]} {keywords[i + 1]}"')
+                i += 2
+                continue
+        result.append(keywords[i])
+        i += 1
+    return result
+
+
+def prepare_smart_query(query: str) -> str:
+    """Convert a conversational query into a precise FTS5 AND query.
+
+    Pipeline:
+      1. Strip punctuation and stop words
+      2. Detect known compound phrases and quote them
+      3. Return AND query (implicit AND via spaces)
+
+    Used as first pass for search UI. If it returns too few results,
+    the caller should fall back to prepare_broad_query().
+
+    Examples:
+        "How do I adjust valve lash?"
+        → "adjust \"valve lash\""
+
+        "valve lash"
+        → "\"valve lash\""
+
+        "3516 fuel rack"
+        → "3516 \"fuel rack\""
+
+        "turbocharger" → "turbocharger"
+
+    Args:
+        query: Natural language question from the user
+
+    Returns:
+        FTS5 query string using implicit AND with quoted phrases
+    """
+    keywords = _tokenize_smart_query(query)
+    if not keywords:
+        # No content keywords after stop-word removal → return original
+        return query
+
+    # Detect and quote known compound phrases
+    phrased = _detect_known_phrases(keywords)
+
+    # Join with spaces (implicit AND in FTS5)
+    return " ".join(phrased)
+
+
+def prepare_broad_query(query: str) -> str:
+    """Convert a conversational query into a broad FTS5 OR query.
+
+    Used as fallback when the precise AND query returns too few results.
+    OR gives broad recall; BM25 ranks pages with more terms higher.
+
+    Examples:
+        "How do I adjust valve lash?"
+        → "\"valve lash\" OR valve OR lash OR adjust"
+
+    Args:
+        query: Natural language question from the user
+
+    Returns:
+        FTS5 OR query with quoted phrases and individual words
+    """
+    keywords = _tokenize_smart_query(query)
+    if not keywords:
+        return query
+
+    # Detect phrases for the OR list too
+    phrased = _detect_known_phrases(keywords)
+
+    # Build OR terms: include both quoted phrases and individual words
+    or_terms: list[str] = list(phrased)
+    for kw in keywords:
+        if kw not in or_terms:
+            or_terms.append(kw)
+
+    return " OR ".join(or_terms)
 
 
 def _is_procedural_query(query: str) -> bool:

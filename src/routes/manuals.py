@@ -22,6 +22,8 @@ from services.manuals_service import (
     log_search,
     open_pdf_to_page,
     is_manuals_db_available,
+    prepare_smart_query,
+    prepare_broad_query,
     EQUIPMENT_OPTIONS,
     DOC_TYPE_OPTIONS,
     SUBSYSTEM_CHOICES,
@@ -73,9 +75,11 @@ def search():
 
     if query:
         try:
-            # Search PDF pages
+            # Two-pass search strategy:
+            # Pass 1: Smart query with stop-word removal and phrase detection (AND)
+            smart_query = prepare_smart_query(query)
             results = search_manuals(
-                query,
+                smart_query,
                 equipment=equipment_filter,
                 doc_type=doc_type_filter,
                 systems=systems_filter,
@@ -83,8 +87,22 @@ def search():
                 boost_primary=boost
             )
 
-            # Search cards
-            card_results = search_cards(query, equipment=equipment_filter, limit=20)
+            # Pass 2: If < 3 results, fallback to broad OR query for better recall
+            if len(results) < 3:
+                broad_query = prepare_broad_query(query)
+                if broad_query != smart_query:
+                    results = search_manuals(
+                        broad_query,
+                        equipment=equipment_filter,
+                        doc_type=doc_type_filter,
+                        systems=systems_filter,
+                        limit=50,
+                        boost_primary=boost
+                    )
+
+            # Search cards using broad query for better recall
+            card_query = prepare_broad_query(query)
+            card_results = search_cards(card_query, equipment=equipment_filter, limit=20)
 
             # Log the search
             total_results = len(results) + len(card_results)
