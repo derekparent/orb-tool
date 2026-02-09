@@ -53,6 +53,13 @@ class Config:
     CHAT_TIMEOUT = int(os.environ.get("CHAT_TIMEOUT", "30"))
     CHAT_MAX_CONTEXT_TOKENS = int(os.environ.get("CHAT_MAX_CONTEXT_TOKENS", "4000"))
 
+    # Web Search
+    TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
+    BRAVE_SEARCH_API_KEY = os.environ.get("BRAVE_SEARCH_API_KEY", "")
+    WEB_SEARCH_TIMEOUT = int(os.environ.get("WEB_SEARCH_TIMEOUT", "10"))
+    WEB_SEARCH_CACHE_TTL = int(os.environ.get("WEB_SEARCH_CACHE_TTL", "86400"))
+    WEB_SEARCH_MAX_RESULTS = int(os.environ.get("WEB_SEARCH_MAX_RESULTS", "5"))
+
     # Logging configuration
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
     LOG_DIR = BASE_DIR / "logs"

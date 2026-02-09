@@ -187,6 +187,10 @@ def create_app(config_name: str | None = None) -> Flask:
     from services.llm_service import create_llm_service
     create_llm_service(app)
 
+    # Initialize web search service (graceful if no API key)
+    from services.web_search_service import create_web_search_service
+    create_web_search_service(app)
+
     # Main routes
     @app.route("/")
     @login_required

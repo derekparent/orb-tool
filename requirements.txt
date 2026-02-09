@@ -28,6 +28,9 @@ google-cloud-vision==3.8.1
 # LLM
 anthropic>=0.39.0
 
+# Web Search
+tavily-python>=0.5.0
+
 # Production Server
 gunicorn==23.0.0
 
