@@ -153,13 +153,12 @@ def create_app(config_name: str | None = None) -> Flask:
                 "database": "connected",
                 "version": app.config.get("APP_VERSION", "1.0.0"),
             }), 200
-        except Exception as e:
+        except Exception as e:  # Health check must catch all to always return JSON
             logger.error(f"Health check failed: {e}")
             return jsonify({
                 "status": "unhealthy",
                 "database": "disconnected",
                 "version": app.config.get("APP_VERSION", "1.0.0"),
-                "error": str(e),
             }), 503
 
     # Note: db.create_all() removed - use migrations instead

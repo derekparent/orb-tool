@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from functools import wraps
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import login_required, current_user
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
 from models import (
     WeeklySounding, ORBEntry, DailyFuelTicket, ServiceTankConfig,
@@ -316,10 +317,18 @@ def create_sounding():
         db.session.rollback()
         logger.warning(f"Sounding creation failed: {e}")
         return jsonify({"error": str(e)}), 400
-    except Exception as e:
+    except IntegrityError as e:
         db.session.rollback()
-        logger.exception("Sounding creation error")
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.warning(f"Sounding integrity error: {e}")
+        return jsonify({"error": "Duplicate or constraint violation"}), 409
+    except OperationalError as e:
+        db.session.rollback()
+        logger.exception("Database operational error during sounding creation")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception("Database error during sounding creation")
+        return jsonify({"error": "Database error"}), 500
 
 
 # --- ORB Entries ---
@@ -438,9 +447,18 @@ def set_active_service_tank():
 
         return jsonify(new_config.to_dict()), 201
 
-    except Exception as e:
+    except IntegrityError as e:
         db.session.rollback()
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.warning(f"Service tank integrity error: {e}")
+        return jsonify({"error": "Duplicate or constraint violation"}), 409
+    except OperationalError as e:
+        db.session.rollback()
+        logger.exception("Database operational error during service tank update")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception("Database error during service tank update")
+        return jsonify({"error": "Database error"}), 500
 
 
 # --- Daily Fuel Tickets ---
@@ -538,10 +556,18 @@ def create_fuel_ticket():
         db.session.rollback()
         logger.warning(f"Fuel ticket creation failed: {e}")
         return jsonify({"error": str(e)}), 400
-    except Exception as e:
+    except IntegrityError as e:
         db.session.rollback()
-        logger.exception("Fuel ticket creation error")
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.warning(f"Fuel ticket integrity error: {e}")
+        return jsonify({"error": "Duplicate or constraint violation"}), 409
+    except OperationalError as e:
+        db.session.rollback()
+        logger.exception("Database operational error during fuel ticket creation")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception("Database error during fuel ticket creation")
+        return jsonify({"error": "Database error"}), 500
 
 
 @api_bp.route("/fuel-tickets/stats", methods=["GET"])
@@ -636,9 +662,18 @@ def create_status_event():
 
         return jsonify(event.to_dict()), 201
 
-    except Exception as e:
+    except IntegrityError as e:
         db.session.rollback()
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.warning(f"Status event integrity error: {e}")
+        return jsonify({"error": "Duplicate or constraint violation"}), 409
+    except OperationalError as e:
+        db.session.rollback()
+        logger.exception("Database operational error during status event creation")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception("Database error during status event creation")
+        return jsonify({"error": "Database error"}), 500
 
 
 # --- Equipment Status ---
@@ -747,10 +782,18 @@ def update_equipment_status(equipment_id: str):
 
         return jsonify(status.to_dict()), 201
 
-    except Exception as e:
+    except IntegrityError as e:
         db.session.rollback()
-        logger.exception(f"Equipment status update error for '{equipment_id}'")
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.warning(f"Equipment status integrity error for '{equipment_id}': {e}")
+        return jsonify({"error": "Duplicate or constraint violation"}), 409
+    except OperationalError as e:
+        db.session.rollback()
+        logger.exception(f"Database operational error during equipment status update for '{equipment_id}'")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception(f"Database error during equipment status update for '{equipment_id}'")
+        return jsonify({"error": "Database error"}), 500
 
 
 @api_bp.route("/equipment/bulk", methods=["POST"])
@@ -804,9 +847,18 @@ def update_equipment_bulk():
         db.session.commit()
         return jsonify({"updated": len(results)}), 201
 
-    except Exception as e:
+    except IntegrityError as e:
         db.session.rollback()
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.warning(f"Bulk equipment update integrity error: {e}")
+        return jsonify({"error": "Duplicate or constraint violation"}), 409
+    except OperationalError as e:
+        db.session.rollback()
+        logger.exception("Database operational error during bulk equipment update")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception("Database error during bulk equipment update")
+        return jsonify({"error": "Database error"}), 500
 
 
 # --- Full Dashboard Data ---
@@ -910,8 +962,15 @@ def parse_hitch_image():
     try:
         result = parse_end_of_hitch_image(image_data)
         return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": f"OCR failed: {str(e)}"}), 500
+    except (OSError, IOError) as e:
+        logger.exception("File I/O error during OCR parsing")
+        return jsonify({"error": "Failed to process image file"}), 500
+    except ValueError as e:
+        logger.warning(f"OCR parsing value error: {e}")
+        return jsonify({"error": "Invalid image data"}), 400
+    except Exception as e:  # Unexpected non-DB error
+        logger.exception("Unexpected error during OCR parsing")
+        return jsonify({"error": "OCR processing failed"}), 500
 
 
 # --- Hitch Management ---
@@ -999,9 +1058,18 @@ def update_hitch(hitch_id: int):
         db.session.commit()
         return jsonify(hitch.to_dict())
 
-    except Exception as e:
+    except IntegrityError as e:
         db.session.rollback()
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.warning(f"Hitch update integrity error: {e}")
+        return jsonify({"error": "Duplicate or constraint violation"}), 409
+    except OperationalError as e:
+        db.session.rollback()
+        logger.exception("Database operational error during hitch update")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception("Database error during hitch update")
+        return jsonify({"error": "Database error"}), 500
 
 
 @api_bp.route("/hitch/start", methods=["POST"])
@@ -1176,10 +1244,18 @@ def start_new_hitch():
             "data_cleared": data_cleared,
         }), 201
 
-    except Exception as e:
+    except IntegrityError as e:
         db.session.rollback()
-        logger.exception("Hitch start error")
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.warning(f"Hitch start integrity error: {e}")
+        return jsonify({"error": "Duplicate or constraint violation"}), 409
+    except OperationalError as e:
+        db.session.rollback()
+        logger.exception("Database operational error during hitch start")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception("Database error during hitch start")
+        return jsonify({"error": "Database error"}), 500
 
 
 @api_bp.route("/hitch/end", methods=["POST"])
@@ -1276,10 +1352,18 @@ def create_end_of_hitch():
             "hitch": hitch.to_dict(),
         }), 201
 
-    except Exception as e:
+    except IntegrityError as e:
         db.session.rollback()
-        logger.exception("Hitch end error")
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.warning(f"Hitch end integrity error: {e}")
+        return jsonify({"error": "Duplicate or constraint violation"}), 409
+    except OperationalError as e:
+        db.session.rollback()
+        logger.exception("Database operational error during hitch end")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception("Database error during hitch end")
+        return jsonify({"error": "Database error"}), 500
 
 
 @api_bp.route("/hitch/reset", methods=["POST"])
@@ -1326,7 +1410,11 @@ def reset_all_data():
 
         return jsonify({"message": "All data cleared successfully"}), 200
 
-    except Exception as e:
+    except OperationalError as e:
         db.session.rollback()
-        logger.exception("Data reset error")
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.exception("Database operational error during data reset")
+        return jsonify({"error": "Database temporarily unavailable"}), 503
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        logger.exception("Database error during data reset")
+        return jsonify({"error": "Database error"}), 500
