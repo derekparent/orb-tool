@@ -1043,15 +1043,14 @@
 
         chip.addEventListener('click', function() {
             chip.disabled = true;
-            chip.remove();
-            triggerWebSearch(query);
+            triggerWebSearch(query, chip);
         });
 
         chip._webSearchQuery = query;
         messageDiv.appendChild(chip);
     }
 
-    function triggerWebSearch(query) {
+    function triggerWebSearch(query, chip) {
         // Loading indicator
         var loadingDiv = document.createElement('div');
         loadingDiv.className = 'web-search-loading';
@@ -1170,12 +1169,16 @@
                         while (contentEl.firstChild) contentEl.removeChild(contentEl.firstChild);
                         contentEl.appendChild(renderMarkdownSafe(fullText));
                     }
+                    // Success — remove the chip permanently
+                    if (chip && chip.parentElement) chip.remove();
 
                 } else if (evt.type === 'error') {
                     var errSpan = document.createElement('div');
                     errSpan.className = 'web-search-inline-error';
                     errSpan.textContent = evt.message || 'Web search encountered an error';
                     wBubble.appendChild(errSpan);
+                    // Re-enable chip so engineer can retry
+                    if (chip) chip.disabled = false;
                     scrollToBottom();
                 }
             }
@@ -1190,6 +1193,8 @@
             errMsg.className = 'web-search-inline-error';
             errMsg.textContent = 'Web search unavailable \u2014 showing manual results only';
             messagesEl.appendChild(errMsg);
+            // Re-enable chip so engineer can retry when connection recovers
+            if (chip) chip.disabled = false;
             scrollToBottom();
         });
     }
