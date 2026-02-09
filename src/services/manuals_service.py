@@ -158,7 +158,7 @@ def _contains_fts_syntax(query: str) -> bool:
     """Detect if query contains advanced FTS5 syntax that shouldn't be expanded."""
     if any(char in query for char in ('"', "*", "(", ")", ":")):
         return True
-    return bool(re.search(r"\b(AND|OR|NOT|NEAR)\b", query, re.IGNORECASE))
+    return bool(re.search(r"\b(AND|OR|NOT|NEAR)\b", query))
 
 
 def _quote_if_phrase(term: str) -> str:

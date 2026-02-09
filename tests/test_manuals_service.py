@@ -120,11 +120,35 @@ class TestContainsFtsSyntax:
 
         assert _contains_fts_syntax("content:valve") is True
 
-    def test_lowercase_and_detected(self):
+    def test_lowercase_and_not_detected(self):
         from services.manuals_service import _contains_fts_syntax
 
-        # The regex is case-insensitive, so "and" also matches
-        assert _contains_fts_syntax("operation and maintenance") is True
+        # Lowercase "and" is a natural word, NOT FTS5 syntax
+        assert _contains_fts_syntax("operation and maintenance") is False
+
+    def test_disassembly_and_assembly(self):
+        from services.manuals_service import _contains_fts_syntax
+
+        # Another common phrase with natural "and"
+        assert _contains_fts_syntax("disassembly and assembly") is False
+
+    def test_uppercase_and_detected(self):
+        from services.manuals_service import _contains_fts_syntax
+
+        # Uppercase AND is FTS5 boolean operator
+        assert _contains_fts_syntax("valve AND lash") is True
+
+    def test_uppercase_near_detected(self):
+        from services.manuals_service import _contains_fts_syntax
+
+        # Uppercase NEAR is FTS5 proximity operator
+        assert _contains_fts_syntax("valve NEAR lash") is True
+
+    def test_mixed_case_not_detected(self):
+        from services.manuals_service import _contains_fts_syntax
+
+        # Mixed case should NOT trigger detection (FTS5 requires uppercase)
+        assert _contains_fts_syntax("valve And lash") is False
 
 
 # ─────────────────────────────────────────────────────────────────
