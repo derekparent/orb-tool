@@ -174,12 +174,22 @@ class WebSearchService:
                 }
                 for r in response.get("results", [])
             ]
-        except Exception as e:
+        except (ConnectionError, TimeoutError) as e:
+            logger.warning("Tavily search network error: %s", e)
+            return None
+        except Exception as e:  # Safety net for unexpected SDK errors
             logger.warning("Tavily search failed: %s", e)
             return None
 
     def _brave_search(self, query: str, domains: list[str]) -> list[dict] | None:
-        """Fallback search via Brave REST API."""
+        """Fallback search via Brave REST API.
+
+        Note: The domains parameter is accepted for interface consistency but
+        not used here — Brave's API doesn't support include_domains natively.
+        Domain filtering would require site: operators in the query string,
+        which can be unreliable with multiple domains. The broad query still
+        works well as a fallback since Tavily handles domain filtering.
+        """
         try:
             headers = {
                 "X-Subscription-Token": self.brave_api_key,
@@ -206,7 +216,13 @@ class WebSearchService:
                 }
                 for r in data.get("web", {}).get("results", [])
             ]
-        except Exception as e:
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.warning("Brave search network error: %s", e)
+            return None
+        except requests.RequestException as e:
+            logger.warning("Brave search HTTP error: %s", e)
+            return None
+        except Exception as e:  # Safety net for unexpected response parsing errors
             logger.warning("Brave search failed: %s", e)
             return None
 
