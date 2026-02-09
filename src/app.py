@@ -19,6 +19,9 @@ from security import SecurityConfig
 from logging_config import setup_logging, get_logger
 from middleware.request_logger import init_request_logging
 
+# Module-level limiter (init_app called in create_app)
+limiter = Limiter(key_func=get_remote_address)
+
 # Module-level logger (initialized in create_app)
 logger = None
 audit_logger = None
@@ -61,12 +64,9 @@ def create_app(config_name: str | None = None) -> Flask:
 
     # Initialize security extensions
     csrf = CSRFProtect(app)
-    limiter = Limiter(
-        app=app,
-        key_func=get_remote_address,
-        default_limits=[SecurityConfig.RATE_LIMIT_PER_HOUR],
-        storage_uri=app.config.get("RATELIMIT_STORAGE_URL", "memory://")
-    )
+    app.config.setdefault("RATELIMIT_STORAGE_URI", app.config.get("RATELIMIT_STORAGE_URL", "memory://"))
+    app.config.setdefault("RATELIMIT_DEFAULT", SecurityConfig.RATE_LIMIT_PER_HOUR)
+    limiter.init_app(app)
 
     # CORS configuration
     CORS(app,

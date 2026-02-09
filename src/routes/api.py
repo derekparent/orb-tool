@@ -10,6 +10,7 @@ from models import (
     StatusEvent, EquipmentStatus, OilLevel, HitchRecord, FuelTankSounding,
     EQUIPMENT_LIST, db, UserRole
 )
+from app import limiter
 from services.sounding_service import SoundingService
 from services.orb_service import ORBService
 from services.fuel_service import FuelService
@@ -131,6 +132,7 @@ def require_json():
 
 
 @api_bp.route("/health", methods=["GET", "HEAD"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def health_check():
     """Health check endpoint for connectivity verification.
     
@@ -144,6 +146,7 @@ def health_check():
 
 
 @api_bp.route("/tanks", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("read")
 def get_tanks():
     """Get available tanks and their metadata."""
@@ -161,6 +164,7 @@ def get_tanks():
 
 
 @api_bp.route("/tanks/<tank_id>/lookup", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def lookup_sounding(tank_id: str):
     """Look up volume for a sounding."""
     feet = request.args.get("feet", type=int)
@@ -186,6 +190,7 @@ def lookup_sounding(tank_id: str):
 
 
 @api_bp.route("/soundings", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_soundings():
     """Get all weekly soundings, newest first."""
     soundings = WeeklySounding.query.order_by(
@@ -195,6 +200,7 @@ def get_soundings():
 
 
 @api_bp.route("/soundings/latest", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_latest_sounding():
     """Get the most recent weekly sounding."""
     sounding = WeeklySounding.query.order_by(
@@ -206,6 +212,7 @@ def get_latest_sounding():
 
 
 @api_bp.route("/soundings", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("write")
 @require_json()
 @validate_form(WeeklySoundingForm)
@@ -326,6 +333,7 @@ def create_sounding():
 
 
 @api_bp.route("/orb-entries", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_orb_entries():
     """Get all ORB entries, newest first."""
     entries = ORBEntry.query.order_by(ORBEntry.entry_date.desc()).all()
@@ -333,6 +341,7 @@ def get_orb_entries():
 
 
 @api_bp.route("/orb-entries/<int:entry_id>", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_orb_entry(entry_id: int):
     """Get a specific ORB entry."""
     entry = ORBEntry.query.get_or_404(entry_id)
@@ -343,6 +352,7 @@ def get_orb_entry(entry_id: int):
 
 
 @api_bp.route("/dashboard/stats", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("read")
 def get_dashboard_stats():
     """Get summary stats for dashboard."""
@@ -383,12 +393,14 @@ def get_dashboard_stats():
 
 
 @api_bp.route("/service-tanks", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_service_tanks():
     """Get available service tank pairs."""
     return jsonify(FuelService.get_available_tank_pairs())
 
 
 @api_bp.route("/service-tanks/active", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_active_service_tank():
     """Get currently active service tank pair."""
     active = ServiceTankConfig.query.filter_by(deactivated_at=None).first()
@@ -398,6 +410,7 @@ def get_active_service_tank():
 
 
 @api_bp.route("/service-tanks/active", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("write")
 @require_json()
 @validate_form(ServiceTankConfigForm)
@@ -447,6 +460,7 @@ def set_active_service_tank():
 
 
 @api_bp.route("/fuel-tickets", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_fuel_tickets():
     """Get all fuel tickets, newest first."""
     tickets = DailyFuelTicket.query.order_by(
@@ -456,6 +470,7 @@ def get_fuel_tickets():
 
 
 @api_bp.route("/fuel-tickets/latest", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_latest_fuel_ticket():
     """Get the most recent fuel ticket."""
     ticket = DailyFuelTicket.query.order_by(
@@ -467,6 +482,7 @@ def get_latest_fuel_ticket():
 
 
 @api_bp.route("/fuel-tickets", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("write")
 @require_json()
 @validate_form(FuelTicketForm)
@@ -545,6 +561,7 @@ def create_fuel_ticket():
 
 
 @api_bp.route("/fuel-tickets/stats", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_fuel_stats():
     """Get fuel consumption statistics."""
     tickets = DailyFuelTicket.query.order_by(
@@ -570,6 +587,7 @@ def get_fuel_stats():
 
 
 @api_bp.route("/status-events", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_status_events():
     """Get status events, optionally filtered by type."""
     event_type = request.args.get("type")
@@ -581,6 +599,7 @@ def get_status_events():
 
 
 @api_bp.route("/status-events/latest", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_latest_status_events():
     """Get the most recent event of each type."""
     event_types = ["sewage_pump", "potable_load"]
@@ -594,6 +613,7 @@ def get_latest_status_events():
 
 
 @api_bp.route("/status-events", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("write")
 @require_json()
 @validate_form(StatusEventForm)
@@ -645,6 +665,7 @@ def create_status_event():
 
 
 @api_bp.route("/equipment", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_equipment_list():
     """Get list of all equipment with current status."""
     result = []
@@ -667,6 +688,7 @@ def get_equipment_list():
 
 
 @api_bp.route("/equipment/<equipment_id>", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_equipment_status(equipment_id: str):
     """Get current status for specific equipment."""
     equip = next((e for e in EQUIPMENT_LIST if e["id"] == equipment_id), None)
@@ -688,6 +710,7 @@ def get_equipment_status(equipment_id: str):
 
 
 @api_bp.route("/equipment/<equipment_id>", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("write")
 @require_json()
 @validate_form(EquipmentStatusForm)
@@ -754,6 +777,7 @@ def update_equipment_status(equipment_id: str):
 
 
 @api_bp.route("/equipment/bulk", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("write")
 def update_equipment_bulk():
     """
@@ -813,6 +837,7 @@ def update_equipment_bulk():
 
 
 @api_bp.route("/dashboard/full", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("read")
 def get_full_dashboard():
     """Get all dashboard data in one call."""
@@ -881,6 +906,7 @@ def get_full_dashboard():
 
 
 @api_bp.route("/hitch/parse-image", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_UPLOAD_PER_MINUTE)
 @require_role("admin")
 @validate_form(ImageUploadForm)
 def parse_hitch_image():
@@ -918,6 +944,7 @@ def parse_hitch_image():
 
 
 @api_bp.route("/hitch/current", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_current_hitch():
     """Get the current active hitch."""
     hitch = HitchRecord.query.filter_by(end_date=None, is_start=True).order_by(
@@ -929,6 +956,7 @@ def get_current_hitch():
 
 
 @api_bp.route("/hitch/<int:hitch_id>", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 def get_hitch(hitch_id: int):
     """Get a specific hitch record with all details."""
     hitch = HitchRecord.query.get_or_404(hitch_id)
@@ -936,6 +964,7 @@ def get_hitch(hitch_id: int):
 
 
 @api_bp.route("/hitch/<int:hitch_id>", methods=["PUT"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @require_role("admin")
 def update_hitch(hitch_id: int):
     """Update an existing hitch record (for end-of-hitch editing)."""
@@ -1005,6 +1034,7 @@ def update_hitch(hitch_id: int):
 
 
 @api_bp.route("/hitch/start", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_AUTH_PER_MINUTE)
 @require_role("admin")
 @require_json()
 @validate_form(HitchStartForm)
@@ -1183,6 +1213,7 @@ def start_new_hitch():
 
 
 @api_bp.route("/hitch/end", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_AUTH_PER_MINUTE)
 @require_role("admin")
 @require_json()
 @validate_form(HitchEndForm)
@@ -1283,6 +1314,7 @@ def create_end_of_hitch():
 
 
 @api_bp.route("/hitch/reset", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_AUTH_PER_MINUTE)
 @require_role("admin")
 @require_json()
 @validate_form(DataResetForm)
