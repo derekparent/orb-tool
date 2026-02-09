@@ -611,6 +611,49 @@ class TestSearchManuals:
         results = search_manuals("O&M")
         assert isinstance(results, list)
 
+    @patch("services.manuals_service.load_keywords")
+    @patch("services.manuals_service.get_manuals_db_path")
+    def test_offset_skips_results(self, mock_path, mock_kw, test_db_path):
+        """Test that offset parameter skips the correct number of results."""
+        from services.manuals_service import search_manuals
+
+        mock_path.return_value = test_db_path
+        mock_kw.return_value = {}
+
+        # Get first 2 results
+        results_page1 = search_manuals("valve", limit=2, offset=0)
+        # Get next 2 results (offset by 1)
+        results_page2 = search_manuals("valve", limit=2, offset=1)
+
+        # Should have results
+        assert len(results_page1) >= 1
+        assert len(results_page2) >= 1
+
+        # The results should be different (offset shifted the window)
+        # Compare first result from each page
+        if len(results_page1) >= 2 and len(results_page2) >= 1:
+            # Second result from page 1 should match first result from page 2
+            assert results_page1[1]["filepath"] == results_page2[0]["filepath"]
+            assert results_page1[1]["page_num"] == results_page2[0]["page_num"]
+
+    @patch("services.manuals_service.load_keywords")
+    @patch("services.manuals_service.get_manuals_db_path")
+    def test_offset_zero_same_as_default(self, mock_path, mock_kw, test_db_path):
+        """Test that offset=0 produces same results as no offset."""
+        from services.manuals_service import search_manuals
+
+        mock_path.return_value = test_db_path
+        mock_kw.return_value = {}
+
+        results_default = search_manuals("valve", limit=5)
+        results_offset_zero = search_manuals("valve", limit=5, offset=0)
+
+        # Should be identical
+        assert len(results_default) == len(results_offset_zero)
+        for i in range(len(results_default)):
+            assert results_default[i]["filepath"] == results_offset_zero[i]["filepath"]
+            assert results_default[i]["page_num"] == results_offset_zero[i]["page_num"]
+
 
 # ─────────────────────────────────────────────────────────────────
 # Unit Tests: get_pages_content (with in-memory DB)

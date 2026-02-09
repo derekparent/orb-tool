@@ -30,6 +30,9 @@ from services.manuals_service import (
 
 manuals_bp = Blueprint("manuals", __name__, url_prefix="/manuals")
 
+# Pagination constant
+PER_PAGE = 20
+
 
 @manuals_bp.route("/")
 @login_required
@@ -59,6 +62,14 @@ def search():
     systems = request.args.getlist("system")  # Multiple checkbox values
     boost = request.args.get("boost", "0") == "1"
 
+    # Pagination
+    try:
+        page = max(1, int(request.args.get("page", "1")))
+    except ValueError:
+        page = 1
+
+    offset = (page - 1) * PER_PAGE
+
     # Convert "All" to None for search functions
     equipment_filter = None if equipment == "All" else equipment
     doc_type_filter = None if doc_type == "All" else doc_type
@@ -73,18 +84,22 @@ def search():
 
     if query:
         try:
-            # Search PDF pages
+            # Search PDF pages (paginated)
             results = search_manuals(
                 query,
                 equipment=equipment_filter,
                 doc_type=doc_type_filter,
                 systems=systems_filter,
-                limit=50,
-                boost_primary=boost
+                limit=PER_PAGE,
+                boost_primary=boost,
+                offset=offset
             )
 
-            # Search cards
+            # Search cards (not paginated - keep all)
             card_results = search_cards(query, equipment=equipment_filter, limit=20)
+
+            # Determine if there are more results
+            has_more = len(results) == PER_PAGE
 
             # Log the search
             total_results = len(results) + len(card_results)
@@ -103,6 +118,9 @@ def search():
             current_app.logger_instance.exception(f"Unexpected search error: {e}")
             error = "An unexpected error occurred"
 
+    # Calculate has_more flag
+    has_more = len(results) == PER_PAGE if query else False
+
     return render_template(
         "manuals/search.html",
         db_available=True,
@@ -117,6 +135,9 @@ def search():
         equipment_options=EQUIPMENT_OPTIONS,
         doc_type_options=DOC_TYPE_OPTIONS,
         tag_facets=tag_facets,
+        page=page,
+        per_page=PER_PAGE,
+        has_more=has_more,
     )
 
 
