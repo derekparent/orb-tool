@@ -14,10 +14,12 @@ from flask import (
     request,
     jsonify,
     stream_with_context,
+    url_for,
 )
 from flask_login import login_required, current_user
 
 from sqlalchemy.exc import SQLAlchemyError
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from app import limiter
 from security import SecurityConfig
@@ -32,6 +34,11 @@ from services.llm_service import get_llm_service
 from services.web_search_service import get_web_search_service
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/manuals/chat")
+
+SHARE_TOKEN_SALT = "manuals-chat-share-v1"
+SHARE_TOKEN_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+MAX_SHARED_QUERY_CHARS = 240
+MAX_SHARED_ANSWER_CHARS = 1200
 
 
 @chat_bp.route("/")
@@ -253,6 +260,149 @@ def web_search():
     )
 
 
+@chat_bp.route("/api/share", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_AUTH_PER_MINUTE)
+@login_required
+def create_share_link():
+    """Create a signed, time-limited share link for a chat answer."""
+    data = request.get_json(silent=True) or {}
+
+    query_raw = data.get("query")
+    answer_raw = data.get("answer")
+    if not isinstance(query_raw, str) or not isinstance(answer_raw, str):
+        return jsonify({"error": "Query and answer are required"}), 400
+
+    query = query_raw.strip()
+    answer = answer_raw.strip()
+
+    if not query or not answer:
+        return jsonify({"error": "Query and answer are required"}), 400
+
+    equipment = data.get("equipment")
+    if equipment is not None:
+        equipment = str(equipment).strip() or None
+    if equipment and len(equipment) > 20:
+        equipment = equipment[:20]
+
+    session_id = data.get("session_id")
+    safe_session_id = None
+    if session_id not in (None, ""):
+        try:
+            safe_session_id = int(session_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "session_id must be an integer"}), 400
+
+    share_payload = {
+        "v": 1,
+        "q": _truncate_for_share(query, MAX_SHARED_QUERY_CHARS),
+        "a": _truncate_for_share(answer, MAX_SHARED_ANSWER_CHARS),
+        "e": equipment,
+        "sid": safe_session_id,
+    }
+
+    token = _share_serializer().dumps(share_payload, salt=SHARE_TOKEN_SALT)
+    share_url = url_for("chat.view_share", token=token, _external=True)
+
+    _track_growth_event(
+        "chat_share_clicked",
+        user_id=current_user.id,
+        session_id=safe_session_id,
+        has_equipment=bool(equipment),
+        query_len=len(share_payload["q"]),
+        answer_len=len(share_payload["a"]),
+    )
+
+    return jsonify({
+        "share_url": share_url,
+        "expires_in_days": SHARE_TOKEN_MAX_AGE_SECONDS // (24 * 60 * 60),
+    })
+
+
+@chat_bp.route("/share/<token>", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
+def view_share(token: str):
+    """Render a public, read-only shared answer view."""
+    try:
+        payload = _share_serializer().loads(
+            token,
+            salt=SHARE_TOKEN_SALT,
+            max_age=SHARE_TOKEN_MAX_AGE_SECONDS,
+        )
+    except SignatureExpired:
+        return render_template(
+            "manuals/share.html",
+            invalid=False,
+            expired=True,
+            shared=None,
+            continue_url=url_for("chat.chat_page"),
+        ), 410
+    except BadSignature:
+        return render_template(
+            "manuals/share.html",
+            invalid=True,
+            expired=False,
+            shared=None,
+            continue_url=url_for("chat.chat_page"),
+        ), 404
+
+    if not isinstance(payload, dict):
+        return render_template(
+            "manuals/share.html",
+            invalid=True,
+            expired=False,
+            shared=None,
+            continue_url=url_for("chat.chat_page"),
+        ), 404
+
+    query = payload.get("q")
+    answer = payload.get("a")
+    equipment = payload.get("e")
+    if equipment is not None:
+        equipment = str(equipment).strip() or None
+
+    if (
+        not isinstance(query, str)
+        or not isinstance(answer, str)
+        or not query.strip()
+        or not answer.strip()
+    ):
+        return render_template(
+            "manuals/share.html",
+            invalid=True,
+            expired=False,
+            shared=None,
+            continue_url=url_for("chat.chat_page"),
+        ), 404
+
+    shared = {
+        "query": query.strip(),
+        "answer": answer.strip(),
+        "equipment": equipment,
+    }
+
+    continue_url = url_for(
+        "chat.chat_page",
+        q=shared["query"],
+        equipment=shared["equipment"] or "",
+    )
+    if not current_user.is_authenticated:
+        continue_url = url_for("auth.login", next=continue_url)
+
+    _track_growth_event(
+        "chat_share_opened",
+        authenticated=current_user.is_authenticated,
+        has_equipment=bool(shared["equipment"]),
+    )
+
+    return render_template(
+        "manuals/share.html",
+        invalid=False,
+        expired=False,
+        shared=shared,
+        continue_url=continue_url,
+    )
+
+
 @chat_bp.route("/api/sessions", methods=["GET"])
 @limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
@@ -303,6 +453,28 @@ def delete_session(session_id: int):
     db.session.commit()
 
     return jsonify({"status": "ok"})
+
+
+def _share_serializer() -> URLSafeTimedSerializer:
+    """Create serializer for share-link tokens."""
+    secret_key = current_app.config.get("SECRET_KEY")
+    return URLSafeTimedSerializer(secret_key=secret_key)
+
+
+def _truncate_for_share(text: str, max_chars: int) -> str:
+    """Keep shared payload size bounded for URL length and safety."""
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars - 3].rstrip() + "..."
+
+
+def _track_growth_event(event_name: str, **details):
+    """Emit structured growth-event logs for lightweight analytics."""
+    logger = getattr(current_app, "logger_instance", current_app.logger)
+    logger.info(
+        f"Growth event: {event_name}",
+        extra={"extra": {"event_name": event_name, **details}},
+    )
 
 
 def _session_preview(session: ChatSession) -> str:
