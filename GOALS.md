@@ -5,11 +5,13 @@ Update this as your priorities change!
 
 ## Active Focus
 <!-- What you're working on NOW - MAW prioritizes these -->
-- Specific exception handling — 15 bare `except Exception as e:` across route handlers. Replace with specific exception types (IntegrityError, OperationalError, etc.).
-- Re-add rate-limiting — dropped during API consolidation. Flask-Limiter infrastructure exists in app.py/security.py but decorators not applied to api.py endpoints.
+- Page number display — citations show DB page index (p.82) vs printed page (48-49). Cosmetic but confusing. Could map DB→printed page numbers.
+- Frontend tests (JS tests for form validation, API handling, offline behavior)
 
 ## Completed
 <!-- Done — moved here for reference -->
+- ~~Specific exception handling~~ — Added specific catches (TypeError/ValueError, ConnectionError/TimeoutError, OperationalError) before generic Exception safety nets in manuals.py, chat.py, app.py. +8 tests.
+- ~~Rate limiting on all routes~~ — Added @limiter.limit to 11 manuals/chat routes (was only on api.py). Chat send_message gets stricter 5/min AUTH limit. +2 tests.
 - ~~Consolidate duplicate API routes~~ — merged secure_api.py into api.py. 13 duplicate endpoints eliminated, validation/auth unified.
 - ~~Test coverage for critical untested modules~~ — manuals_service (99 tests), llm_service (26 tests), manuals_indexer (33 tests), manuals_assistant (52 tests) = 210 total.
 - ~~Clickable suggestion chips~~ — PR #9, #11 (deterministic detection, 80 char max)
@@ -18,8 +20,6 @@ Update this as your priorities change!
 
 ## Backlog
 <!-- Coming up next - MAW considers these secondary -->
-- Page number display — citations show DB page index (p.82) vs printed page (48-49). Cosmetic but confusing. Could map DB→printed page numbers.
-- Frontend tests (JS tests for form validation, API handling, offline behavior)
 - API documentation (OpenAPI/Swagger spec)
 
 ## Not Now
