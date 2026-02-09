@@ -133,7 +133,10 @@ def search():
         except sqlite3.Error as e:
             current_app.logger_instance.error(f"Search database error: {e}")
             error = "Search database error"
-        except Exception as e:  # Unexpected non-DB error
+        except (TypeError, ValueError) as e:
+            current_app.logger_instance.warning(f"Search query processing error: {e}")
+            error = "Invalid search query"
+        except Exception as e:  # Safety net for unexpected errors
             current_app.logger_instance.exception(f"Unexpected search error: {e}")
             error = "An unexpected error occurred"
 
