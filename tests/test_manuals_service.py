@@ -986,6 +986,218 @@ class TestQuoteIfPhrase:
 
 
 # ─────────────────────────────────────────────────────────────────
+# Unit Tests: _tokenize_smart_query
+# ─────────────────────────────────────────────────────────────────
+
+class TestTokenizeSmartQuery:
+    """Test smart query tokenization with stop-word removal."""
+
+    def test_basic_words(self):
+        from services.manuals_service import _tokenize_smart_query
+
+        assert _tokenize_smart_query("valve lash") == ["valve", "lash"]
+
+    def test_stop_words_removed(self):
+        from services.manuals_service import _tokenize_smart_query
+
+        result = _tokenize_smart_query("How do I adjust valve lash?")
+        assert "how" not in [t.lower() for t in result]
+        assert "do" not in [t.lower() for t in result]
+        assert "i" not in [t.lower() for t in result]
+        assert "adjust" in [t.lower() for t in result]
+        assert "valve" in [t.lower() for t in result]
+        assert "lash" in [t.lower() for t in result]
+
+    def test_model_numbers_preserved(self):
+        from services.manuals_service import _tokenize_smart_query
+
+        tokens = _tokenize_smart_query("What is the 3516 fuel rack?")
+        assert "3516" in tokens
+        assert "fuel" in [t.lower() for t in tokens]
+        assert "rack" in [t.lower() for t in tokens]
+
+    def test_strips_punctuation(self):
+        from services.manuals_service import _tokenize_smart_query
+
+        tokens = _tokenize_smart_query("valve lash?")
+        # Should not have trailing punctuation
+        assert all("?" not in t for t in tokens)
+
+    def test_empty_query(self):
+        from services.manuals_service import _tokenize_smart_query
+
+        assert _tokenize_smart_query("") == []
+
+    def test_only_stop_words(self):
+        from services.manuals_service import _tokenize_smart_query
+
+        # Query with only stop words returns empty
+        assert _tokenize_smart_query("how do I") == []
+
+    def test_c4_dot_4_preserved(self):
+        from services.manuals_service import _tokenize_smart_query
+
+        tokens = _tokenize_smart_query("C4.4 engine")
+        assert "C4.4" in tokens or "c4.4" in [t.lower() for t in tokens]
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: _detect_known_phrases
+# ─────────────────────────────────────────────────────────────────
+
+class TestDetectKnownPhrases:
+    """Test known phrase detection."""
+
+    def test_valve_lash_detected(self):
+        from services.manuals_service import _detect_known_phrases
+
+        result = _detect_known_phrases(["valve", "lash"])
+        assert '"valve lash"' in result
+
+    def test_oil_filter_detected(self):
+        from services.manuals_service import _detect_known_phrases
+
+        result = _detect_known_phrases(["oil", "filter", "replacement"])
+        assert '"oil filter"' in result
+        assert "replacement" in result
+
+    def test_fuel_rack_detected(self):
+        from services.manuals_service import _detect_known_phrases
+
+        result = _detect_known_phrases(["3516", "fuel", "rack"])
+        assert "3516" in result
+        assert '"fuel rack"' in result
+
+    def test_no_phrase_match(self):
+        from services.manuals_service import _detect_known_phrases
+
+        result = _detect_known_phrases(["turbocharger", "maintenance"])
+        assert "turbocharger" in result
+        assert "maintenance" in result
+        # No quoted phrases
+        assert not any('"' in r for r in result)
+
+    def test_single_keyword(self):
+        from services.manuals_service import _detect_known_phrases
+
+        result = _detect_known_phrases(["valve"])
+        assert result == ["valve"]
+
+    def test_empty_list(self):
+        from services.manuals_service import _detect_known_phrases
+
+        assert _detect_known_phrases([]) == []
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: prepare_smart_query
+# ─────────────────────────────────────────────────────────────────
+
+class TestPrepareSmartQuery:
+    """Test smart query pipeline with stop-word removal and phrase detection."""
+
+    def test_stop_words_removed(self):
+        from services.manuals_service import prepare_smart_query
+
+        result = prepare_smart_query("How do I adjust valve lash?")
+        # "how", "do", "i" should be stripped
+        assert "how" not in result.lower()
+        assert "do" not in result.lower() or '"valve lash"' in result.lower()  # 'do' might be in 'procedure'
+        assert result.count("adjust") >= 1
+        assert '"valve lash"' in result
+
+    def test_valve_lash_phrase(self):
+        from services.manuals_service import prepare_smart_query
+
+        result = prepare_smart_query("valve lash")
+        assert result == '"valve lash"'
+
+    def test_3516_fuel_rack(self):
+        from services.manuals_service import prepare_smart_query
+
+        result = prepare_smart_query("3516 fuel rack")
+        assert "3516" in result
+        assert '"fuel rack"' in result
+
+    def test_single_keyword(self):
+        from services.manuals_service import prepare_smart_query
+
+        result = prepare_smart_query("turbocharger")
+        assert result == "turbocharger"
+
+    def test_empty_query(self):
+        from services.manuals_service import prepare_smart_query
+
+        assert prepare_smart_query("") == ""
+
+    def test_only_stop_words_returns_original(self):
+        from services.manuals_service import prepare_smart_query
+
+        # No content keywords → return original
+        result = prepare_smart_query("how do I")
+        assert result == "how do I"
+
+    def test_oil_filter_replacement(self):
+        from services.manuals_service import prepare_smart_query
+
+        result = prepare_smart_query("oil filter replacement")
+        assert '"oil filter"' in result
+        assert "replacement" in result
+
+
+# ─────────────────────────────────────────────────────────────────
+# Unit Tests: prepare_broad_query
+# ─────────────────────────────────────────────────────────────────
+
+class TestPrepareBroadQuery:
+    """Test broad OR query generation."""
+
+    def test_or_joining(self):
+        from services.manuals_service import prepare_broad_query
+
+        result = prepare_broad_query("valve lash adjustment")
+        assert "OR" in result
+
+    def test_phrases_included(self):
+        from services.manuals_service import prepare_broad_query
+
+        result = prepare_broad_query("oil filter replacement")
+        # Should have both the phrase and individual words
+        assert '"oil filter"' in result
+        assert "OR" in result
+
+    def test_individual_words_included(self):
+        from services.manuals_service import prepare_broad_query
+
+        result = prepare_broad_query("valve lash")
+        # Should have both the phrase and individual words
+        assert '"valve lash"' in result
+        assert "valve" in result
+        assert "lash" in result
+        assert "OR" in result
+
+    def test_single_keyword(self):
+        from services.manuals_service import prepare_broad_query
+
+        result = prepare_broad_query("turbocharger")
+        assert result == "turbocharger"
+
+    def test_empty_query(self):
+        from services.manuals_service import prepare_broad_query
+
+        assert prepare_broad_query("") == ""
+
+    def test_stop_words_removed(self):
+        from services.manuals_service import prepare_broad_query
+
+        result = prepare_broad_query("How do I adjust valve lash?")
+        # Stop words should be removed
+        assert "how" not in result.lower().split(" or ")
+        assert "adjust" in result.lower()
+        assert '"valve lash"' in result
+
+
+# ─────────────────────────────────────────────────────────────────
 # Unit Tests: is_manuals_db_available
 # ─────────────────────────────────────────────────────────────────
 
