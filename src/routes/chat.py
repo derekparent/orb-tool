@@ -19,6 +19,8 @@ from flask_login import login_required, current_user
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from app import limiter
+from security import SecurityConfig
 from models import db, ChatSession
 from services.chat_service import (
     stream_chat_response,
@@ -31,6 +33,7 @@ chat_bp = Blueprint("chat", __name__, url_prefix="/manuals/chat")
 
 
 @chat_bp.route("/")
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def chat_page():
     """Chat interface."""
@@ -39,6 +42,7 @@ def chat_page():
 
 
 @chat_bp.route("/api/message", methods=["POST"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_AUTH_PER_MINUTE)
 @login_required
 def send_message():
     """Send a chat message and get a streamed SSE response.
@@ -133,6 +137,7 @@ def send_message():
 
 
 @chat_bp.route("/api/sessions", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def list_sessions():
     """List user's chat sessions."""
@@ -151,6 +156,7 @@ def list_sessions():
 
 
 @chat_bp.route("/api/sessions/<int:session_id>", methods=["GET"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def get_session(session_id: int):
     """Get a specific chat session."""
@@ -165,6 +171,7 @@ def get_session(session_id: int):
 
 
 @chat_bp.route("/api/sessions/<int:session_id>", methods=["DELETE"])
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def delete_session(session_id: int):
     """Delete a chat session."""

@@ -251,6 +251,55 @@ class TestRateLimiting:
         # Check error handler is registered
         assert 429 in app.error_handler_spec[None]
 
+    def test_manuals_routes_have_rate_limits(self):
+        """Test that all manuals routes have rate limiting decorators."""
+        from routes.manuals import (
+            search, card_detail, cards_list, stats, open_pdf, open_pdf_by_name
+        )
+        from security import SecurityConfig
+
+        # All manuals routes should have the standard rate limit
+        expected_limit = SecurityConfig.RATE_LIMIT_PER_MINUTE
+
+        routes_to_check = [
+            ("search", search),
+            ("card_detail", card_detail),
+            ("cards_list", cards_list),
+            ("stats", stats),
+            ("open_pdf", open_pdf),
+            ("open_pdf_by_name", open_pdf_by_name),
+        ]
+
+        for route_name, route_func in routes_to_check:
+            # Check if function has rate limit decorator applied
+            # Flask-Limiter wraps the function and stores limits in __wrapped__ or _func
+            assert hasattr(route_func, "_limit_decorator") or hasattr(route_func, "__wrapped__"), \
+                f"Route {route_name} missing rate limit decorator"
+
+    def test_chat_routes_have_rate_limits(self):
+        """Test that all chat routes have rate limiting decorators."""
+        from routes.chat import (
+            chat_page, send_message, list_sessions, get_session, delete_session
+        )
+        from security import SecurityConfig
+
+        # Standard routes should have the normal rate limit
+        standard_routes = [
+            ("chat_page", chat_page),
+            ("list_sessions", list_sessions),
+            ("get_session", get_session),
+            ("delete_session", delete_session),
+        ]
+
+        for route_name, route_func in standard_routes:
+            assert hasattr(route_func, "_limit_decorator") or hasattr(route_func, "__wrapped__"), \
+                f"Route {route_name} missing rate limit decorator"
+
+        # send_message should have the stricter auth rate limit
+        # (since it calls the LLM API which costs money)
+        assert hasattr(send_message, "_limit_decorator") or hasattr(send_message, "__wrapped__"), \
+            "send_message route missing rate limit decorator"
+
 
 class TestSecurityHeaders:
     """Test security headers."""

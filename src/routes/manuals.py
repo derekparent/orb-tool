@@ -11,6 +11,8 @@ from pathlib import Path
 from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required
 
+from app import limiter
+from security import SecurityConfig
 from services.manuals_service import (
     search_manuals,
     search_cards,
@@ -37,6 +39,7 @@ PER_PAGE = 20
 
 
 @manuals_bp.route("/")
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def search():
     """Main search page for manuals."""
@@ -161,6 +164,7 @@ def search():
 
 
 @manuals_bp.route("/card/<card_id>")
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def card_detail(card_id: str):
     """Show troubleshooting card detail."""
@@ -173,6 +177,7 @@ def card_detail(card_id: str):
 
 
 @manuals_bp.route("/cards")
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def cards_list():
     """List all troubleshooting cards."""
@@ -196,6 +201,7 @@ def cards_list():
 
 
 @manuals_bp.route("/stats")
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def stats():
     """Show index statistics."""
@@ -204,6 +210,7 @@ def stats():
 
 
 @manuals_bp.route("/open")
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def open_pdf():
     """
@@ -238,6 +245,7 @@ def open_pdf():
 
 
 @manuals_bp.route("/open-by-name")
+@limiter.limit(SecurityConfig.RATE_LIMIT_PER_MINUTE)
 @login_required
 def open_pdf_by_name():
     """Open PDF by filename (resolved from DB) at specific page.
